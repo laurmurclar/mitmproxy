@@ -22,14 +22,19 @@ cursor.execute("INSERT INTO User (UserId) VALUES ('calvin');")
 cursor.execute("INSERT INTO Host (HostName) VALUES ('Google');")
 cursor.execute("INSERT INTO Host (HostName) VALUES ('Youtube');")
 cursor.execute("INSERT INTO Host (HostId) VALUES (0);") # Generates next id in sequence, w/o HostName
+cursor.execute("INSERT INTO Host (HostId) VALUES (0);") # Generates next id in sequence, w/o HostName
 
 cursor.execute("INSERT INTO Site (Url, HostId) VALUES ('google.com', 1);")
 cursor.execute("INSERT INTO Site (Url, HostId) VALUES ('google.ie', 1);")
 cursor.execute("INSERT INTO Site (Url, HostId) VALUES ('gmail.com', 1);")
 cursor.execute("INSERT INTO Site (Url, HostId) VALUES ('youtube.com', 2);")
+cursor.execute("INSERT INTO Site (Url, HostId) VALUES ('infinite-wave-54273.herokuapp.com', 3);")
+cursor.execute("INSERT INTO Site (Url, HostId) VALUES ('localhost', 4);")
 
-cursor.execute("INSERT INTO UserHost(UserId, HostId) VALUES ('laura', 2);")
 cursor.execute("INSERT INTO UserHost(UserId, HostId) VALUES ('laura', 1);")
+cursor.execute("INSERT INTO UserHost(UserId, HostId) VALUES ('laura', 2);")
+cursor.execute("INSERT INTO UserHost(UserId, HostId) VALUES ('laura', 3);")
+cursor.execute("INSERT INTO UserHost(UserId, HostId) VALUES ('laura', 4);")
 cursor.execute("INSERT INTO UserHost(UserId, HostId) VALUES ('calvin', 1);")
 
 cnx.commit()

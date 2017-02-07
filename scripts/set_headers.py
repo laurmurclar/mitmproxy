@@ -4,10 +4,27 @@ class Replacer:
     def __init__(self, cnx, cursor):
         self.cnx, self.cursor = cnx, cursor
 
-    def request(self, flow):
-        self.cursor.execute("SELECT IdeaId FROM UserHost WHERE UserId='laura' AND HostId=1;")
+    def getHostId(self, flow):
+        host = flow.request.pretty_host
+        self.cursor.execute("SELECT HostId FROM Site WHERE Url='" + host + "';")
         row = self.cursor.fetchone ()
-        flow.request.headers["x-idea-id"] = str(row[0])
+        if (row is None):
+            return -1 # TODO
+        else:
+            return row[0]
+
+    def getIdeaId(self, userId, hostId):
+        self.cursor.execute("SELECT IdeaId FROM UserHost WHERE UserId='" + userId + "' AND HostId=" + str(hostId) + ";")
+        row = self.cursor.fetchone ()
+        if (row is None):
+            return -2 # TODO
+        else:
+            return row[0]
+
+    def request(self, flow):
+        hostId = self.getHostId(flow)
+        ideaId = self.getIdeaId('laura', hostId)
+        flow.request.headers["x-idea-id"] = str(ideaId)
 
 def start():
     cnx = mysql.connector.connect(user='root', password='Hello', database='test')

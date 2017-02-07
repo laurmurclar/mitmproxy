@@ -6,7 +6,7 @@
 `mitmproxy -s scripts/set_headers.py`
 
 # TODO
-- Read id for relevant site from table
 - Add new id to table from proxy
 - Sign in for proxy
+- Figure out protocol for sites to be added to host
 - Easy setup on another machine (change startup script of mitmproxy)
