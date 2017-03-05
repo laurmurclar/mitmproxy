@@ -1,6 +1,5 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 // shim for using process in browser
-
 var process = module.exports = {};
 
 // cached from whatever global is present so that test runners that stub it
@@ -11,22 +10,84 @@ var process = module.exports = {};
 var cachedSetTimeout;
 var cachedClearTimeout;
 
+function defaultSetTimout() {
+    throw new Error('setTimeout has not been defined');
+}
+function defaultClearTimeout () {
+    throw new Error('clearTimeout has not been defined');
+}
 (function () {
-  try {
-    cachedSetTimeout = setTimeout;
-  } catch (e) {
-    cachedSetTimeout = function () {
-      throw new Error('setTimeout is not defined');
+    try {
+        if (typeof setTimeout === 'function') {
+            cachedSetTimeout = setTimeout;
+        } else {
+            cachedSetTimeout = defaultSetTimout;
+        }
+    } catch (e) {
+        cachedSetTimeout = defaultSetTimout;
     }
-  }
-  try {
-    cachedClearTimeout = clearTimeout;
-  } catch (e) {
-    cachedClearTimeout = function () {
-      throw new Error('clearTimeout is not defined');
+    try {
+        if (typeof clearTimeout === 'function') {
+            cachedClearTimeout = clearTimeout;
+        } else {
+            cachedClearTimeout = defaultClearTimeout;
+        }
+    } catch (e) {
+        cachedClearTimeout = defaultClearTimeout;
     }
-  }
 } ())
+function runTimeout(fun) {
+    if (cachedSetTimeout === setTimeout) {
+        //normal enviroments in sane situations
+        return setTimeout(fun, 0);
+    }
+    // if setTimeout wasn't available but was latter defined
+    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
+        cachedSetTimeout = setTimeout;
+        return setTimeout(fun, 0);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedSetTimeout(fun, 0);
+    } catch(e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
+            return cachedSetTimeout.call(null, fun, 0);
+        } catch(e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
+            return cachedSetTimeout.call(this, fun, 0);
+        }
+    }
+
+
+}
+function runClearTimeout(marker) {
+    if (cachedClearTimeout === clearTimeout) {
+        //normal enviroments in sane situations
+        return clearTimeout(marker);
+    }
+    // if clearTimeout wasn't available but was latter defined
+    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
+        cachedClearTimeout = clearTimeout;
+        return clearTimeout(marker);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedClearTimeout(marker);
+    } catch (e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
+            return cachedClearTimeout.call(null, marker);
+        } catch (e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
+            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
+            return cachedClearTimeout.call(this, marker);
+        }
+    }
+
+
+
+}
 var queue = [];
 var draining = false;
 var currentQueue;
@@ -51,7 +112,7 @@ function drainQueue() {
     if (draining) {
         return;
     }
-    var timeout = cachedSetTimeout(cleanUpNextTick);
+    var timeout = runTimeout(cleanUpNextTick);
     draining = true;
 
     var len = queue.length;
@@ -68,7 +129,7 @@ function drainQueue() {
     }
     currentQueue = null;
     draining = false;
-    cachedClearTimeout(timeout);
+    runClearTimeout(timeout);
 }
 
 process.nextTick = function (fun) {
@@ -80,7 +141,7 @@ process.nextTick = function (fun) {
     }
     queue.push(new Item(fun, args));
     if (queue.length === 1 && !draining) {
-        cachedSetTimeout(drainQueue, 0);
+        runTimeout(drainQueue);
     }
 };
 
@@ -347,13 +408,13 @@ ContentView.isContentTooLarge = function (msg) {
 };
 
 function ContentView(props) {
-    var flow = props.flow;
-    var message = props.message;
-    var contentView = props.contentView;
-    var isDisplayLarge = props.isDisplayLarge;
-    var displayLarge = props.displayLarge;
-    var onContentChange = props.onContentChange;
-    var readonly = props.readonly;
+    var flow = props.flow,
+        message = props.message,
+        contentView = props.contentView,
+        isDisplayLarge = props.isDisplayLarge,
+        displayLarge = props.displayLarge,
+        onContentChange = props.onContentChange,
+        readonly = props.readonly;
 
 
     if (message.contentLength === 0 && readonly) {
@@ -411,8 +472,8 @@ CodeEditor.propTypes = {
 };
 
 function CodeEditor(_ref) {
-    var content = _ref.content;
-    var onChange = _ref.onChange;
+    var content = _ref.content,
+        onChange = _ref.onChange;
 
 
     var options = {
@@ -461,7 +522,7 @@ exports.default = function (View) {
         function _class(props) {
             _classCallCheck(this, _class);
 
-            var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(_class).call(this, props));
+            var _this = _possibleConstructorReturn(this, (_class.__proto__ || Object.getPrototypeOf(_class)).call(this, props));
 
             _this.state = {
                 content: undefined,
@@ -589,22 +650,31 @@ ContentViewOptions.propTypes = {
 };
 
 function ContentViewOptions(_ref) {
-    var flow = _ref.flow;
-    var message = _ref.message;
-    var uploadContent = _ref.uploadContent;
-    var readonly = _ref.readonly;
-    var contentViewDescription = _ref.contentViewDescription;
+    var flow = _ref.flow,
+        message = _ref.message,
+        uploadContent = _ref.uploadContent,
+        readonly = _ref.readonly,
+        contentViewDescription = _ref.contentViewDescription;
 
     return _react2.default.createElement(
         'div',
         { className: 'view-options' },
-        _react2.default.createElement(_ViewSelector2.default, { message: message }),
-        ' ',
+        readonly ? _react2.default.createElement(_ViewSelector2.default, { message: message }) : _react2.default.createElement(
+            'span',
+            null,
+            _react2.default.createElement(
+                'b',
+                null,
+                'View:'
+            ),
+            ' edit'
+        ),
+        '\xA0',
         _react2.default.createElement(_DownloadContentButton2.default, { flow: flow, message: message }),
-        ' ',
+        '\xA0',
         !readonly && _react2.default.createElement(_UploadContentButton2.default, { uploadContent: uploadContent }),
-        ' ',
-        _react2.default.createElement(
+        '\xA0',
+        readonly && _react2.default.createElement(
             'span',
             null,
             contentViewDescription
@@ -666,8 +736,8 @@ ViewImage.propTypes = {
     message: _react.PropTypes.object.isRequired
 };
 function ViewImage(_ref) {
-    var flow = _ref.flow;
-    var message = _ref.message;
+    var flow = _ref.flow,
+        message = _ref.message;
 
     return _react2.default.createElement(
         'div',
@@ -681,8 +751,8 @@ Edit.propTypes = {
 };
 
 function Edit(_ref2) {
-    var content = _ref2.content;
-    var onChange = _ref2.onChange;
+    var content = _ref2.content,
+        onChange = _ref2.onChange;
 
     return _react2.default.createElement(_CodeEditor2.default, { content: content, onChange: onChange });
 }
@@ -694,7 +764,7 @@ var ViewServer = function (_Component) {
     function ViewServer() {
         _classCallCheck(this, ViewServer);
 
-        return _possibleConstructorReturn(this, Object.getPrototypeOf(ViewServer).apply(this, arguments));
+        return _possibleConstructorReturn(this, (ViewServer.__proto__ || Object.getPrototypeOf(ViewServer)).apply(this, arguments));
     }
 
     _createClass(ViewServer, [{
@@ -724,11 +794,11 @@ var ViewServer = function (_Component) {
     }, {
         key: 'render',
         value: function render() {
-            var _props = this.props;
-            var content = _props.content;
-            var contentView = _props.contentView;
-            var message = _props.message;
-            var maxLines = _props.maxLines;
+            var _props = this.props,
+                content = _props.content,
+                contentView = _props.contentView,
+                message = _props.message,
+                maxLines = _props.maxLines;
 
             var lines = this.props.showFullContent ? this.data.lines : this.data.lines.slice(0, maxLines);
             return _react2.default.createElement(
@@ -743,10 +813,9 @@ var ViewServer = function (_Component) {
                             'div',
                             { key: 'line' + i },
                             line.map(function (element, j) {
-                                var _element = _slicedToArray(element, 2);
-
-                                var style = _element[0];
-                                var text = _element[1];
+                                var _element = _slicedToArray(element, 2),
+                                    style = _element[0],
+                                    text = _element[1];
 
                                 return _react2.default.createElement(
                                     'span',
@@ -804,8 +873,8 @@ DownloadContentButton.propTypes = {
 };
 
 function DownloadContentButton(_ref) {
-    var flow = _ref.flow;
-    var message = _ref.message;
+    var flow = _ref.flow,
+        message = _ref.message;
 
 
     return React.createElement(
@@ -844,8 +913,8 @@ var _DownloadContentButton2 = _interopRequireDefault(_DownloadContentButton);
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function ContentEmpty(_ref) {
-    var flow = _ref.flow;
-    var message = _ref.message;
+    var flow = _ref.flow,
+        message = _ref.message;
 
     return _react2.default.createElement(
         'div',
@@ -857,8 +926,8 @@ function ContentEmpty(_ref) {
 }
 
 function ContentMissing(_ref2) {
-    var flow = _ref2.flow;
-    var message = _ref2.message;
+    var flow = _ref2.flow,
+        message = _ref2.message;
 
     return _react2.default.createElement(
         'div',
@@ -869,10 +938,10 @@ function ContentMissing(_ref2) {
 }
 
 function ContentTooLarge(_ref3) {
-    var message = _ref3.message;
-    var onClick = _ref3.onClick;
-    var uploadContent = _ref3.uploadContent;
-    var flow = _ref3.flow;
+    var message = _ref3.message,
+        onClick = _ref3.onClick,
+        uploadContent = _ref3.uploadContent,
+        flow = _ref3.flow;
 
     return _react2.default.createElement(
         'div',
@@ -892,7 +961,7 @@ function ContentTooLarge(_ref3) {
             'div',
             { className: 'view-options text-center' },
             _react2.default.createElement(_UploadContentButton2.default, { uploadContent: uploadContent }),
-            ' ',
+            '\xA0',
             _react2.default.createElement(_DownloadContentButton2.default, { flow: flow, message: message })
         )
     );
@@ -927,10 +996,10 @@ ShowFullContentButton.propTypes = {
 };
 
 function ShowFullContentButton(_ref) {
-    var setShowFullContent = _ref.setShowFullContent;
-    var showFullContent = _ref.showFullContent;
-    var visibleLines = _ref.visibleLines;
-    var contentLines = _ref.contentLines;
+    var setShowFullContent = _ref.setShowFullContent,
+        showFullContent = _ref.showFullContent,
+        visibleLines = _ref.visibleLines,
+        contentLines = _ref.contentLines;
 
 
     return !showFullContent && _react2.default.createElement(
@@ -950,7 +1019,7 @@ function ShowFullContentButton(_ref) {
             visibleLines,
             '/',
             contentLines,
-            ' are visible   '
+            ' are visible \xA0 '
         )
     );
 }
@@ -1010,34 +1079,25 @@ var _react2 = _interopRequireDefault(_react);
 
 var _reactRedux = require('react-redux');
 
-var _ContentViews = require('./ContentViews');
-
-var ContentViews = _interopRequireWildcard(_ContentViews);
-
 var _flow = require('../../ducks/ui/flow');
 
 var _Dropdown = require('../common/Dropdown');
 
 var _Dropdown2 = _interopRequireDefault(_Dropdown);
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 ViewSelector.propTypes = {
     contentViews: _react.PropTypes.array.isRequired,
     activeView: _react.PropTypes.string.isRequired,
-    isEdit: _react.PropTypes.bool.isRequired,
     setContentView: _react.PropTypes.func.isRequired
 };
 
 function ViewSelector(_ref) {
-    var contentViews = _ref.contentViews;
-    var activeView = _ref.activeView;
-    var isEdit = _ref.isEdit;
-    var setContentView = _ref.setContentView;
+    var contentViews = _ref.contentViews,
+        activeView = _ref.activeView,
+        setContentView = _ref.setContentView;
 
-    var edit = ContentViews.Edit.displayName;
     var inner = _react2.default.createElement(
         'span',
         null,
@@ -1048,7 +1108,7 @@ function ViewSelector(_ref) {
             'View:'
         ),
         ' ',
-        activeView,
+        activeView.toLowerCase(),
         ' ',
         _react2.default.createElement('span', { className: 'caret' }),
         ' '
@@ -1065,28 +1125,20 @@ function ViewSelector(_ref) {
                     } },
                 name.toLowerCase().replace('_', ' ')
             );
-        }),
-        isEdit && _react2.default.createElement(
-            'a',
-            { href: '#', onClick: function onClick(e) {
-                    e.preventDefault();setContentView(edit);
-                } },
-            edit.toLowerCase()
-        )
+        })
     );
 }
 
 exports.default = (0, _reactRedux.connect)(function (state) {
     return {
         contentViews: state.settings.contentViews,
-        activeView: state.ui.flow.contentView,
-        isEdit: !!state.ui.flow.modifiedFlow
+        activeView: state.ui.flow.contentView
     };
 }, {
     setContentView: _flow.setContentView
 })(ViewSelector);
 
-},{"../../ducks/ui/flow":52,"../common/Dropdown":42,"./ContentViews":8,"react":"react","react-redux":"react-redux"}],14:[function(require,module,exports){
+},{"../../ducks/ui/flow":52,"../common/Dropdown":42,"react":"react","react-redux":"react-redux"}],14:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1125,7 +1177,7 @@ var EventLog = function (_Component) {
     function EventLog(props, context) {
         _classCallCheck(this, EventLog);
 
-        var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(EventLog).call(this, props, context));
+        var _this = _possibleConstructorReturn(this, (EventLog.__proto__ || Object.getPrototypeOf(EventLog)).call(this, props, context));
 
         _this.state = { height: _this.props.defaultHeight };
 
@@ -1160,11 +1212,11 @@ var EventLog = function (_Component) {
         key: 'render',
         value: function render() {
             var height = this.state.height;
-            var _props = this.props;
-            var filters = _props.filters;
-            var events = _props.events;
-            var toggleFilter = _props.toggleFilter;
-            var close = _props.close;
+            var _props = this.props,
+                filters = _props.filters,
+                events = _props.events,
+                toggleFilter = _props.toggleFilter,
+                close = _props.close;
 
 
             return _react2.default.createElement(
@@ -1254,7 +1306,7 @@ var EventLogList = function (_Component) {
     function EventLogList(props) {
         _classCallCheck(this, EventLogList);
 
-        var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(EventLogList).call(this, props));
+        var _this = _possibleConstructorReturn(this, (EventLogList.__proto__ || Object.getPrototypeOf(EventLogList)).call(this, props));
 
         _this.heights = {};
         _this.state = { vScroll: (0, _VirtualScroll.calcVScroll)() };
@@ -1413,7 +1465,7 @@ var FlowTable = function (_React$Component) {
     function FlowTable(props, context) {
         _classCallCheck(this, FlowTable);
 
-        var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(FlowTable).call(this, props, context));
+        var _this = _possibleConstructorReturn(this, (FlowTable.__proto__ || Object.getPrototypeOf(FlowTable)).call(this, props, context));
 
         _this.state = { vScroll: (0, _VirtualScroll.calcVScroll)() };
         _this.onViewportUpdate = _this.onViewportUpdate.bind(_this);
@@ -1441,10 +1493,10 @@ var FlowTable = function (_React$Component) {
 
             this.shouldScrollIntoView = false;
 
-            var _props = this.props;
-            var rowHeight = _props.rowHeight;
-            var flows = _props.flows;
-            var selected = _props.selected;
+            var _props = this.props,
+                rowHeight = _props.rowHeight,
+                flows = _props.flows,
+                selected = _props.selected;
 
             var viewport = _reactDom2.default.findDOMNode(this);
             var head = _reactDom2.default.findDOMNode(this.refs.head);
@@ -1493,13 +1545,13 @@ var FlowTable = function (_React$Component) {
         value: function render() {
             var _this2 = this;
 
-            var _state = this.state;
-            var vScroll = _state.vScroll;
-            var viewportTop = _state.viewportTop;
-            var _props2 = this.props;
-            var flows = _props2.flows;
-            var selected = _props2.selected;
-            var highlight = _props2.highlight;
+            var _state = this.state,
+                vScroll = _state.vScroll,
+                viewportTop = _state.viewportTop;
+            var _props2 = this.props,
+                flows = _props2.flows,
+                selected = _props2.selected,
+                highlight = _props2.highlight;
 
             var isHighlighted = highlight ? _filt2.default.parse(highlight) : function () {
                 return false;
@@ -1749,10 +1801,10 @@ FlowRow.propTypes = {
 };
 
 function FlowRow(_ref) {
-    var flow = _ref.flow;
-    var selected = _ref.selected;
-    var highlighted = _ref.highlighted;
-    var onSelect = _ref.onSelect;
+    var flow = _ref.flow,
+        selected = _ref.selected,
+        highlighted = _ref.highlighted,
+        onSelect = _ref.onSelect;
 
     var className = (0, _classnames2.default)({
         'selected': selected,
@@ -1807,9 +1859,9 @@ FlowTableHead.propTypes = {
 };
 
 function FlowTableHead(_ref) {
-    var sortColumn = _ref.sortColumn;
-    var sortDesc = _ref.sortDesc;
-    var setSort = _ref.setSort;
+    var sortColumn = _ref.sortColumn,
+        sortDesc = _ref.sortDesc,
+        setSort = _ref.setSort;
 
     var sortType = sortDesc ? 'sort-desc' : 'sort-asc';
 
@@ -1888,7 +1940,7 @@ var FlowView = function (_Component) {
     function FlowView(props, context) {
         _classCallCheck(this, FlowView);
 
-        var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(FlowView).call(this, props, context));
+        var _this = _possibleConstructorReturn(this, (FlowView.__proto__ || Object.getPrototypeOf(FlowView)).call(this, props, context));
 
         _this.onPromptFinish = _this.onPromptFinish.bind(_this);
         return _this;
@@ -1927,10 +1979,10 @@ var FlowView = function (_Component) {
         value: function render() {
             var _this2 = this;
 
-            var _props = this.props;
-            var flow = _props.flow;
-            var active = _props.tab;
-            var updateFlow = _props.updateFlow;
+            var _props = this.props,
+                flow = _props.flow,
+                active = _props.tab,
+                updateFlow = _props.updateFlow;
 
             var tabs = ['request', 'response', 'error'].filter(function (k) {
                 return flow[k];
@@ -1969,7 +2021,6 @@ var FlowView = function (_Component) {
 }(_react.Component);
 
 FlowView.allTabs = { Request: _Messages.Request, Response: _Messages.Response, Error: _Messages.ErrorView, Details: _Details2.default };
-exports.default = FlowView;
 exports.default = (0, _reactRedux.connect)(function (state) {
     return {
         promptOpen: state.ui.promptOpen,
@@ -2007,9 +2058,9 @@ var _utils = require('../../utils.js');
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function TimeStamp(_ref) {
-    var t = _ref.t;
-    var deltaTo = _ref.deltaTo;
-    var title = _ref.title;
+    var t = _ref.t,
+        deltaTo = _ref.deltaTo,
+        title = _ref.title;
 
     return t ? _react2.default.createElement(
         'tr',
@@ -2055,7 +2106,7 @@ function ConnectionInfo(_ref2) {
                 _react2.default.createElement(
                     'td',
                     null,
-                    conn.address.address.join(':')
+                    conn.address.join(':')
                 )
             ),
             conn.sni && _react2.default.createElement(
@@ -2110,10 +2161,10 @@ function CertificateInfo(_ref3) {
 
 function Timing(_ref4) {
     var flow = _ref4.flow;
-    var sc = flow.server_conn;
-    var cc = flow.client_conn;
-    var req = flow.request;
-    var res = flow.response;
+    var sc = flow.server_conn,
+        cc = flow.client_conn,
+        req = flow.request,
+        res = flow.response;
 
 
     var timestamps = [{
@@ -2243,7 +2294,7 @@ var HeaderEditor = function (_Component) {
     function HeaderEditor(props) {
         _classCallCheck(this, HeaderEditor);
 
-        var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(HeaderEditor).call(this, props));
+        var _this = _possibleConstructorReturn(this, (HeaderEditor.__proto__ || Object.getPrototypeOf(HeaderEditor)).call(this, props));
 
         _this.onKeyDown = _this.onKeyDown.bind(_this);
         return _this;
@@ -2252,10 +2303,9 @@ var HeaderEditor = function (_Component) {
     _createClass(HeaderEditor, [{
         key: 'render',
         value: function render() {
-            var _props = this.props;
-            var onTab = _props.onTab;
-
-            var props = _objectWithoutProperties(_props, ['onTab']);
+            var _props = this.props,
+                onTab = _props.onTab,
+                props = _objectWithoutProperties(_props, ['onTab']);
 
             return _react2.default.createElement(_ValueEditor2.default, _extends({}, props, {
                 onKeyDown: this.onKeyDown
@@ -2295,7 +2345,7 @@ var Headers = function (_Component2) {
     function Headers() {
         _classCallCheck(this, Headers);
 
-        return _possibleConstructorReturn(this, Object.getPrototypeOf(Headers).apply(this, arguments));
+        return _possibleConstructorReturn(this, (Headers.__proto__ || Object.getPrototypeOf(Headers)).apply(this, arguments));
     }
 
     _createClass(Headers, [{
@@ -2371,9 +2421,9 @@ var Headers = function (_Component2) {
         value: function render() {
             var _this3 = this;
 
-            var _props2 = this.props;
-            var message = _props2.message;
-            var readonly = _props2.readonly;
+            var _props2 = this.props,
+                message = _props2.message,
+                readonly = _props2.readonly;
 
 
             return _react2.default.createElement(
@@ -2508,9 +2558,9 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
 function RequestLine(_ref) {
-    var flow = _ref.flow;
-    var readonly = _ref.readonly;
-    var updateFlow = _ref.updateFlow;
+    var flow = _ref.flow,
+        readonly = _ref.readonly,
+        updateFlow = _ref.updateFlow;
 
     return _react2.default.createElement(
         'div',
@@ -2525,7 +2575,7 @@ function RequestLine(_ref) {
                     return updateFlow({ request: { method: method } });
                 }
             }),
-            ' ',
+            '\xA0',
             _react2.default.createElement(_ValidateEditor2.default, {
                 content: _utils.RequestUtils.pretty_url(flow.request),
                 readonly: readonly,
@@ -2536,7 +2586,7 @@ function RequestLine(_ref) {
                     return !!(0, _utils.parseUrl)(url).host;
                 }
             }),
-            ' ',
+            '\xA0',
             _react2.default.createElement(_ValidateEditor2.default, {
                 content: flow.request.http_version,
                 readonly: readonly,
@@ -2550,9 +2600,9 @@ function RequestLine(_ref) {
 }
 
 function ResponseLine(_ref2) {
-    var flow = _ref2.flow;
-    var readonly = _ref2.readonly;
-    var updateFlow = _ref2.updateFlow;
+    var flow = _ref2.flow,
+        readonly = _ref2.readonly,
+        updateFlow = _ref2.updateFlow;
 
     return _react2.default.createElement(
         'div',
@@ -2565,7 +2615,7 @@ function ResponseLine(_ref2) {
             },
             isValid: _utils.isValidHttpVersion
         }),
-        ' ',
+        '\xA0',
         _react2.default.createElement(_ValidateEditor2.default, {
             content: flow.response.status_code + '',
             readonly: readonly,
@@ -2577,7 +2627,7 @@ function ResponseLine(_ref2) {
                 );
             }
         }),
-        ' ',
+        '\xA0',
         _react2.default.createElement(_ValueEditor2.default, {
             content: flow.response.reason,
             readonly: readonly,
@@ -2604,17 +2654,17 @@ var Request = exports.Request = function (_Component) {
     function Request() {
         _classCallCheck(this, Request);
 
-        return _possibleConstructorReturn(this, Object.getPrototypeOf(Request).apply(this, arguments));
+        return _possibleConstructorReturn(this, (Request.__proto__ || Object.getPrototypeOf(Request)).apply(this, arguments));
     }
 
     _createClass(Request, [{
         key: 'render',
         value: function render() {
-            var _props = this.props;
-            var flow = _props.flow;
-            var isEdit = _props.isEdit;
-            var updateFlow = _props.updateFlow;
-            var _uploadContent = _props.uploadContent;
+            var _props = this.props,
+                flow = _props.flow,
+                isEdit = _props.isEdit,
+                updateFlow = _props.updateFlow,
+                _uploadContent = _props.uploadContent;
 
             var noContent = !isEdit && (flow.request.contentLength == 0 || flow.request.contentLength == null);
             return _react2.default.createElement(
@@ -2693,17 +2743,17 @@ var Response = exports.Response = function (_Component2) {
     function Response() {
         _classCallCheck(this, Response);
 
-        return _possibleConstructorReturn(this, Object.getPrototypeOf(Response).apply(this, arguments));
+        return _possibleConstructorReturn(this, (Response.__proto__ || Object.getPrototypeOf(Response)).apply(this, arguments));
     }
 
     _createClass(Response, [{
         key: 'render',
         value: function render() {
-            var _props2 = this.props;
-            var flow = _props2.flow;
-            var isEdit = _props2.isEdit;
-            var updateFlow = _props2.updateFlow;
-            var _uploadContent2 = _props2.uploadContent;
+            var _props2 = this.props,
+                flow = _props2.flow,
+                isEdit = _props2.isEdit,
+                updateFlow = _props2.updateFlow,
+                _uploadContent2 = _props2.uploadContent;
 
             var noContent = !isEdit && (flow.response.contentLength == 0 || flow.response.contentLength == null);
 
@@ -2832,9 +2882,9 @@ NavAction.propTypes = {
 };
 
 function NavAction(_ref) {
-    var icon = _ref.icon;
-    var title = _ref.title;
-    var _onClick = _ref.onClick;
+    var icon = _ref.icon,
+        title = _ref.title,
+        _onClick = _ref.onClick;
 
     return _react2.default.createElement(
         'a',
@@ -2856,9 +2906,9 @@ Nav.propTypes = {
 };
 
 function Nav(_ref2) {
-    var active = _ref2.active;
-    var tabs = _ref2.tabs;
-    var onSelectTab = _ref2.onSelectTab;
+    var active = _ref2.active,
+        tabs = _ref2.tabs,
+        onSelectTab = _ref2.onSelectTab;
 
     return _react2.default.createElement(
         'nav',
@@ -2904,11 +2954,11 @@ ToggleEdit.propTypes = {
 };
 
 function ToggleEdit(_ref) {
-    var isEdit = _ref.isEdit;
-    var startEdit = _ref.startEdit;
-    var stopEdit = _ref.stopEdit;
-    var flow = _ref.flow;
-    var modifiedFlow = _ref.modifiedFlow;
+    var isEdit = _ref.isEdit,
+        startEdit = _ref.startEdit,
+        stopEdit = _ref.stopEdit,
+        flow = _ref.flow,
+        modifiedFlow = _ref.modifiedFlow;
 
     return _react2.default.createElement(
         'div',
@@ -2963,20 +3013,21 @@ Footer.propTypes = {
 
 function Footer(_ref) {
     var settings = _ref.settings;
-    var mode = settings.mode;
-    var intercept = settings.intercept;
-    var showhost = settings.showhost;
-    var no_upstream_cert = settings.no_upstream_cert;
-    var rawtcp = settings.rawtcp;
-    var http2 = settings.http2;
-    var websocket = settings.websocket;
-    var anticache = settings.anticache;
-    var anticomp = settings.anticomp;
-    var stickyauth = settings.stickyauth;
-    var stickycookie = settings.stickycookie;
-    var stream_large_bodies = settings.stream_large_bodies;
-    var listen_host = settings.listen_host;
-    var listen_port = settings.listen_port;
+    var mode = settings.mode,
+        intercept = settings.intercept,
+        showhost = settings.showhost,
+        no_upstream_cert = settings.no_upstream_cert,
+        rawtcp = settings.rawtcp,
+        http2 = settings.http2,
+        websocket = settings.websocket,
+        anticache = settings.anticache,
+        anticomp = settings.anticomp,
+        stickyauth = settings.stickyauth,
+        stickycookie = settings.stickycookie,
+        stream_large_bodies = settings.stream_large_bodies,
+        listen_host = settings.listen_host,
+        listen_port = settings.listen_port,
+        version = settings.version;
 
     return _react2.default.createElement(
         'footer',
@@ -3008,10 +3059,10 @@ function Footer(_ref) {
             { className: 'label label-success' },
             'raw-tcp'
         ),
-        http2 && _react2.default.createElement(
+        !http2 && _react2.default.createElement(
             'span',
             { className: 'label label-success' },
-            'http2'
+            'no-http2'
         ),
         !websocket && _react2.default.createElement(
             'span',
@@ -3052,11 +3103,15 @@ function Footer(_ref) {
             _react2.default.createElement(
                 'span',
                 { className: 'label label-primary', title: 'HTTP Proxy Server Address' },
-                '[',
                 listen_host || "*",
                 ':',
-                listen_port,
-                ']'
+                listen_port
+            ),
+            _react2.default.createElement(
+                'span',
+                { className: 'label label-info', title: 'Mitmproxy Version' },
+                'v',
+                version
             )
         )
     );
@@ -3121,7 +3176,7 @@ var Header = function (_Component) {
     function Header() {
         _classCallCheck(this, Header);
 
-        return _possibleConstructorReturn(this, Object.getPrototypeOf(Header).apply(this, arguments));
+        return _possibleConstructorReturn(this, (Header.__proto__ || Object.getPrototypeOf(Header)).apply(this, arguments));
     }
 
     _createClass(Header, [{
@@ -3135,9 +3190,9 @@ var Header = function (_Component) {
         value: function render() {
             var _this2 = this;
 
-            var _props = this.props;
-            var selectedFlowId = _props.selectedFlowId;
-            var activeMenu = _props.activeMenu;
+            var _props = this.props,
+                selectedFlowId = _props.selectedFlowId,
+                activeMenu = _props.activeMenu;
 
 
             var entries = [].concat(_toConsumableArray(Header.entries));
@@ -3232,9 +3287,9 @@ FileMenu.onNewClick = function (e, clearFlows) {
 };
 
 function FileMenu(_ref) {
-    var clearFlows = _ref.clearFlows;
-    var loadFlows = _ref.loadFlows;
-    var saveFlows = _ref.saveFlows;
+    var clearFlows = _ref.clearFlows,
+        loadFlows = _ref.loadFlows,
+        saveFlows = _ref.saveFlows;
 
     return _react2.default.createElement(
         _Dropdown2.default,
@@ -3245,11 +3300,11 @@ function FileMenu(_ref) {
                     return FileMenu.onNewClick(e, clearFlows);
                 } },
             _react2.default.createElement('i', { className: 'fa fa-fw fa-file' }),
-            ' New'
+            '\xA0New'
         ),
         _react2.default.createElement(_FileChooser2.default, {
             icon: 'fa-folder-open',
-            text: ' Open...',
+            text: '\xA0Open...',
             onOpenFile: function onOpenFile(file) {
                 return loadFlows(file);
             }
@@ -3260,14 +3315,14 @@ function FileMenu(_ref) {
                     e.preventDefault();saveFlows();
                 } },
             _react2.default.createElement('i', { className: 'fa fa-fw fa-floppy-o' }),
-            ' Save...'
+            '\xA0Save...'
         ),
         _react2.default.createElement(_Dropdown.Divider, null),
         _react2.default.createElement(
             'a',
             { href: 'http://mitm.it/', target: '_blank' },
             _react2.default.createElement('i', { className: 'fa fa-fw fa-external-link' }),
-            ' Install Certificates...'
+            '\xA0Install Certificates...'
         )
     );
 }
@@ -3309,7 +3364,7 @@ var FilterDocs = function (_Component) {
     function FilterDocs(props, context) {
         _classCallCheck(this, FilterDocs);
 
-        var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(FilterDocs).call(this, props, context));
+        var _this = _possibleConstructorReturn(this, (FilterDocs.__proto__ || Object.getPrototypeOf(FilterDocs)).call(this, props, context));
 
         _this.state = { doc: FilterDocs.doc };
         return _this;
@@ -3353,7 +3408,7 @@ var FilterDocs = function (_Component) {
                             _react2.default.createElement(
                                 'td',
                                 null,
-                                cmd[0].replace(' ', ' ')
+                                cmd[0].replace(' ', '\xA0')
                             ),
                             _react2.default.createElement(
                                 'td',
@@ -3373,7 +3428,7 @@ var FilterDocs = function (_Component) {
                                 { href: 'http://docs.mitmproxy.org/en/stable/features/filters.html',
                                     target: '_blank' },
                                 _react2.default.createElement('i', { className: 'fa fa-external-link' }),
-                                '  mitmproxy docs'
+                                '\xA0 mitmproxy docs'
                             )
                         )
                     )
@@ -3437,8 +3492,7 @@ var FilterInput = function (_Component) {
         // Consider both focus and mouseover for showing/hiding the tooltip,
         // because onBlur of the input is triggered before the click on the tooltip
         // finalized, hiding the tooltip just as the user clicks on it.
-
-        var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(FilterInput).call(this, props, context));
+        var _this = _possibleConstructorReturn(this, (FilterInput.__proto__ || Object.getPrototypeOf(FilterInput)).call(this, props, context));
 
         _this.state = { value: _this.props.value, focus: false, mousefocus: false };
 
@@ -3535,14 +3589,14 @@ var FilterInput = function (_Component) {
     }, {
         key: 'render',
         value: function render() {
-            var _props = this.props;
-            var type = _props.type;
-            var color = _props.color;
-            var placeholder = _props.placeholder;
-            var _state = this.state;
-            var value = _state.value;
-            var focus = _state.focus;
-            var mousefocus = _state.mousefocus;
+            var _props = this.props,
+                type = _props.type,
+                color = _props.color,
+                placeholder = _props.placeholder;
+            var _state = this.state,
+                value = _state.value,
+                focus = _state.focus,
+                mousefocus = _state.mousefocus;
 
             return _react2.default.createElement(
                 'div',
@@ -3624,13 +3678,13 @@ FlowMenu.propTypes = {
 };
 
 function FlowMenu(_ref) {
-    var flow = _ref.flow;
-    var resumeFlow = _ref.resumeFlow;
-    var killFlow = _ref.killFlow;
-    var replayFlow = _ref.replayFlow;
-    var duplicateFlow = _ref.duplicateFlow;
-    var removeFlow = _ref.removeFlow;
-    var revertFlow = _ref.revertFlow;
+    var flow = _ref.flow,
+        resumeFlow = _ref.resumeFlow,
+        killFlow = _ref.killFlow,
+        replayFlow = _ref.replayFlow,
+        duplicateFlow = _ref.duplicateFlow,
+        removeFlow = _ref.removeFlow,
+        revertFlow = _ref.revertFlow;
 
     if (!flow) return _react2.default.createElement("div", null);
     return _react2.default.createElement(
@@ -3839,9 +3893,9 @@ MenuToggle.propTypes = {
 };
 
 function MenuToggle(_ref) {
-    var value = _ref.value;
-    var onChange = _ref.onChange;
-    var children = _ref.children;
+    var value = _ref.value,
+        onChange = _ref.onChange,
+        children = _ref.children;
 
     return React.createElement(
         "div",
@@ -3863,10 +3917,10 @@ SettingsToggle.propTypes = {
 };
 
 function SettingsToggle(_ref2) {
-    var setting = _ref2.setting;
-    var children = _ref2.children;
-    var settings = _ref2.settings;
-    var updateSettings = _ref2.updateSettings;
+    var setting = _ref2.setting,
+        children = _ref2.children,
+        settings = _ref2.settings,
+        updateSettings = _ref2.updateSettings;
 
     return React.createElement(
         MenuToggle,
@@ -3888,8 +3942,8 @@ exports.SettingsToggle = SettingsToggle = (0, _reactRedux.connect)(function (sta
 })(SettingsToggle);
 
 function EventlogToggle(_ref3) {
-    var toggleVisibility = _ref3.toggleVisibility;
-    var eventLogVisible = _ref3.eventLogVisible;
+    var toggleVisibility = _ref3.toggleVisibility,
+        eventLogVisible = _ref3.eventLogVisible;
 
     return React.createElement(
         MenuToggle,
@@ -4061,7 +4115,7 @@ var MainView = function (_Component) {
     function MainView() {
         _classCallCheck(this, MainView);
 
-        return _possibleConstructorReturn(this, Object.getPrototypeOf(MainView).apply(this, arguments));
+        return _possibleConstructorReturn(this, (MainView.__proto__ || Object.getPrototypeOf(MainView)).apply(this, arguments));
     }
 
     _createClass(MainView, [{
@@ -4069,10 +4123,10 @@ var MainView = function (_Component) {
         value: function render() {
             var _this2 = this;
 
-            var _props = this.props;
-            var flows = _props.flows;
-            var selectedFlow = _props.selectedFlow;
-            var highlight = _props.highlight;
+            var _props = this.props,
+                flows = _props.flows,
+                selectedFlow = _props.selectedFlow,
+                highlight = _props.highlight;
 
             return _react2.default.createElement(
                 'div',
@@ -4148,9 +4202,9 @@ Prompt.propTypes = {
 };
 
 function Prompt(_ref) {
-    var prompt = _ref.prompt;
-    var done = _ref.done;
-    var options = _ref.options;
+    var prompt = _ref.prompt,
+        done = _ref.done,
+        options = _ref.options;
 
     var opts = [];
 
@@ -4265,7 +4319,7 @@ var ProxyAppMain = function (_Component) {
     function ProxyAppMain() {
         _classCallCheck(this, ProxyAppMain);
 
-        return _possibleConstructorReturn(this, Object.getPrototypeOf(ProxyAppMain).apply(this, arguments));
+        return _possibleConstructorReturn(this, (ProxyAppMain.__proto__ || Object.getPrototypeOf(ProxyAppMain)).apply(this, arguments));
     }
 
     _createClass(ProxyAppMain, [{
@@ -4281,11 +4335,11 @@ var ProxyAppMain = function (_Component) {
     }, {
         key: 'render',
         value: function render() {
-            var _props = this.props;
-            var showEventLog = _props.showEventLog;
-            var location = _props.location;
-            var filter = _props.filter;
-            var highlight = _props.highlight;
+            var _props = this.props,
+                showEventLog = _props.showEventLog,
+                location = _props.location,
+                filter = _props.filter,
+                highlight = _props.highlight;
 
             return _react2.default.createElement(
                 'div',
@@ -4344,7 +4398,7 @@ var ValidateEditor = function (_Component) {
     function ValidateEditor(props) {
         _classCallCheck(this, ValidateEditor);
 
-        var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(ValidateEditor).call(this, props));
+        var _this = _possibleConstructorReturn(this, (ValidateEditor.__proto__ || Object.getPrototypeOf(ValidateEditor)).call(this, props));
 
         _this.state = { valid: props.isValid(props.content) };
         _this.onInput = _this.onInput.bind(_this);
@@ -4442,7 +4496,7 @@ var ValueEditor = function (_Component) {
     function ValueEditor(props) {
         _classCallCheck(this, ValueEditor);
 
-        var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(ValueEditor).call(this, props));
+        var _this = _possibleConstructorReturn(this, (ValueEditor.__proto__ || Object.getPrototypeOf(ValueEditor)).call(this, props));
 
         _this.state = { editable: false };
 
@@ -4644,12 +4698,12 @@ Button.propTypes = {
 };
 
 function Button(_ref) {
-    var onClick = _ref.onClick;
-    var children = _ref.children;
-    var icon = _ref.icon;
-    var disabled = _ref.disabled;
-    var className = _ref.className;
-    var title = _ref.title;
+    var onClick = _ref.onClick,
+        children = _ref.children,
+        icon = _ref.icon,
+        disabled = _ref.disabled,
+        className = _ref.className,
+        title = _ref.title;
 
     return _react2.default.createElement(
         "div",
@@ -4677,8 +4731,8 @@ DocsLink.propTypes = {
 };
 
 function DocsLink(_ref) {
-    var children = _ref.children;
-    var resource = _ref.resource;
+    var children = _ref.children,
+        resource = _ref.resource;
 
     var url = "http://docs.mitmproxy.org/en/stable/" + resource;
     return React.createElement(
@@ -4724,7 +4778,7 @@ var Dropdown = function (_Component) {
     function Dropdown(props, context) {
         _classCallCheck(this, Dropdown);
 
-        var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(Dropdown).call(this, props, context));
+        var _this = _possibleConstructorReturn(this, (Dropdown.__proto__ || Object.getPrototypeOf(Dropdown)).call(this, props, context));
 
         _this.state = { open: false };
         _this.close = _this.close.bind(_this);
@@ -4751,12 +4805,12 @@ var Dropdown = function (_Component) {
     }, {
         key: 'render',
         value: function render() {
-            var _props = this.props;
-            var dropup = _props.dropup;
-            var className = _props.className;
-            var btnClass = _props.btnClass;
-            var text = _props.text;
-            var children = _props.children;
+            var _props = this.props,
+                dropup = _props.dropup,
+                className = _props.className,
+                btnClass = _props.btnClass,
+                text = _props.text,
+                children = _props.children;
 
             return _react2.default.createElement(
                 'div',
@@ -4820,11 +4874,11 @@ FileChooser.propTypes = {
 };
 
 function FileChooser(_ref) {
-    var icon = _ref.icon;
-    var text = _ref.text;
-    var className = _ref.className;
-    var title = _ref.title;
-    var onOpenFile = _ref.onOpenFile;
+    var icon = _ref.icon,
+        text = _ref.text,
+        className = _ref.className,
+        title = _ref.title,
+        onOpenFile = _ref.onOpenFile;
 
     var fileInput = void 0;
     return _react2.default.createElement(
@@ -4884,7 +4938,7 @@ var Splitter = function (_Component) {
     function Splitter(props, context) {
         _classCallCheck(this, Splitter);
 
-        var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(Splitter).call(this, props, context));
+        var _this = _possibleConstructorReturn(this, (Splitter.__proto__ || Object.getPrototypeOf(Splitter)).call(this, props, context));
 
         _this.state = { applied: false, startX: false, startY: false };
 
@@ -5015,15 +5069,15 @@ ToggleButton.propTypes = {
 };
 
 function ToggleButton(_ref) {
-    var checked = _ref.checked;
-    var onToggle = _ref.onToggle;
-    var text = _ref.text;
+    var checked = _ref.checked,
+        onToggle = _ref.onToggle,
+        text = _ref.text;
 
     return _react2.default.createElement(
         "div",
         { className: "btn btn-toggle " + (checked ? "btn-primary" : "btn-default"), onClick: onToggle },
         _react2.default.createElement("i", { className: "fa fa-fw " + (checked ? "fa-check-square-o" : "fa-square-o") }),
-        " ",
+        "\xA0",
         text
     );
 }
@@ -5069,7 +5123,7 @@ exports.default = function (Component) {
         function AutoScrollWrapper() {
             _classCallCheck(this, AutoScrollWrapper);
 
-            return _possibleConstructorReturn(this, Object.getPrototypeOf(AutoScrollWrapper).apply(this, arguments));
+            return _possibleConstructorReturn(this, (AutoScrollWrapper.__proto__ || Object.getPrototypeOf(AutoScrollWrapper)).apply(this, arguments));
         }
 
         _createClass(AutoScrollWrapper, [{
@@ -5077,7 +5131,7 @@ exports.default = function (Component) {
             value: function componentWillUpdate() {
                 var viewport = _reactDom2.default.findDOMNode(this);
                 this[symShouldStick] = viewport.scrollTop && isAtBottom(viewport);
-                _get(Object.getPrototypeOf(AutoScrollWrapper.prototype), "componentWillUpdate", this) && _get(Object.getPrototypeOf(AutoScrollWrapper.prototype), "componentWillUpdate", this).call(this);
+                _get(AutoScrollWrapper.prototype.__proto__ || Object.getPrototypeOf(AutoScrollWrapper.prototype), "componentWillUpdate", this) && _get(AutoScrollWrapper.prototype.__proto__ || Object.getPrototypeOf(AutoScrollWrapper.prototype), "componentWillUpdate", this).call(this);
             }
         }, {
             key: "componentDidUpdate",
@@ -5086,7 +5140,7 @@ exports.default = function (Component) {
                 if (this[symShouldStick] && !isAtBottom(viewport)) {
                     viewport.scrollTop = viewport.scrollHeight;
                 }
-                _get(Object.getPrototypeOf(AutoScrollWrapper.prototype), "componentDidUpdate", this) && _get(Object.getPrototypeOf(AutoScrollWrapper.prototype), "componentDidUpdate", this).call(this);
+                _get(AutoScrollWrapper.prototype.__proto__ || Object.getPrototypeOf(AutoScrollWrapper.prototype), "componentDidUpdate", this) && _get(AutoScrollWrapper.prototype.__proto__ || Object.getPrototypeOf(AutoScrollWrapper.prototype), "componentDidUpdate", this).call(this);
             }
         }]);
 
@@ -5126,11 +5180,11 @@ function calcVScroll(opts) {
         return { start: 0, end: 0, paddingTop: 0, paddingBottom: 0 };
     }
 
-    var itemCount = opts.itemCount;
-    var rowHeight = opts.rowHeight;
-    var viewportTop = opts.viewportTop;
-    var viewportHeight = opts.viewportHeight;
-    var itemHeights = opts.itemHeights;
+    var itemCount = opts.itemCount,
+        rowHeight = opts.rowHeight,
+        viewportTop = opts.viewportTop,
+        viewportHeight = opts.viewportHeight,
+        itemHeights = opts.itemHeights;
 
     var viewportBottom = viewportTop + viewportHeight;
 
@@ -5181,8 +5235,6 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.TOGGLE_FILTER = exports.TOGGLE_VISIBILITY = exports.RECEIVE = exports.ADD = undefined;
 
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
-
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
 
 exports.default = reduce;
@@ -5209,45 +5261,33 @@ var defaultState = _extends({
 }, (0, storeActions.default)(undefined, {}));
 
 function reduce() {
-    var state = arguments.length <= 0 || arguments[0] === undefined ? defaultState : arguments[0];
+    var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : defaultState;
     var action = arguments[1];
 
-    var _ret = function () {
-        switch (action.type) {
+    switch (action.type) {
 
-            case TOGGLE_VISIBILITY:
-                return {
-                    v: _extends({}, state, {
-                        visible: !state.visible
-                    })
-                };
+        case TOGGLE_VISIBILITY:
+            return _extends({}, state, {
+                visible: !state.visible
+            });
 
-            case TOGGLE_FILTER:
-                var filters = _extends({}, state.filters, _defineProperty({}, action.filter, !state.filters[action.filter]));
-                return {
-                    v: _extends({}, state, {
-                        filters: filters
-                    }, (0, storeActions.default)(state, storeActions.setFilter(function (log) {
-                        return filters[log.level];
-                    })))
-                };
+        case TOGGLE_FILTER:
+            var filters = _extends({}, state.filters, _defineProperty({}, action.filter, !state.filters[action.filter]));
+            return _extends({}, state, {
+                filters: filters
+            }, (0, storeActions.default)(state, storeActions.setFilter(function (log) {
+                return filters[log.level];
+            })));
 
-            case ADD:
-            case RECEIVE:
-                return {
-                    v: _extends({}, state, (0, storeActions.default)(state, storeActions[action.cmd](action.data, function (log) {
-                        return state.filters[log.level];
-                    })))
-                };
+        case ADD:
+        case RECEIVE:
+            return _extends({}, state, (0, storeActions.default)(state, storeActions[action.cmd](action.data, function (log) {
+                return state.filters[log.level];
+            })));
 
-            default:
-                return {
-                    v: state
-                };
-        }
-    }();
-
-    if ((typeof _ret === "undefined" ? "undefined" : _typeof(_ret)) === "object") return _ret.v;
+        default:
+            return state;
+    }
 }
 
 function toggleFilter(filter) {
@@ -5259,7 +5299,7 @@ function toggleVisibility() {
 }
 
 function add(message) {
-    var level = arguments.length <= 1 || arguments[1] === undefined ? 'web' : arguments[1];
+    var level = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'web';
 
     var data = {
         id: Math.random().toString(),
@@ -5339,7 +5379,7 @@ var defaultState = _extends({
 }, (0, storeActions.default)(undefined, {}));
 
 function reduce() {
-    var state = arguments.length <= 0 || arguments[0] === undefined ? defaultState : arguments[0];
+    var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : defaultState;
     var action = arguments[1];
 
     switch (action.type) {
@@ -5442,8 +5482,8 @@ function makeFilter(filter) {
 }
 
 function makeSort(_ref) {
-    var column = _ref.column;
-    var desc = _ref.desc;
+    var column = _ref.column,
+        desc = _ref.desc;
 
     var sortKeyFun = sortKeyFuns[column];
     if (!sortKeyFun) {
@@ -5638,7 +5678,7 @@ var UNKNOWN_CMD = exports.UNKNOWN_CMD = 'SETTINGS_UNKNOWN_CMD';
 var defaultState = {};
 
 function reducer() {
-    var state = arguments.length <= 0 || arguments[0] === undefined ? defaultState : arguments[0];
+    var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : defaultState;
     var action = arguments[1];
 
     switch (action.type) {
@@ -5716,7 +5756,7 @@ var defaultState = {
 };
 
 function reducer() {
-    var state = arguments.length <= 0 || arguments[0] === undefined ? defaultState : arguments[0];
+    var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : defaultState;
     var action = arguments[1];
 
     var wasInEditMode = !!state.modifiedFlow;
@@ -5775,7 +5815,7 @@ function reducer() {
             return _extends({}, state, {
                 tab: action.tab ? action.tab : 'request',
                 displayLarge: false,
-                showFullContent: false
+                showFullContent: state.contentView == 'Edit'
             });
 
         case SET_CONTENT_VIEW:
@@ -5862,7 +5902,7 @@ var defaultState = {
 };
 
 function reducer() {
-    var state = arguments.length <= 0 || arguments[0] === undefined ? defaultState : arguments[0];
+    var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : defaultState;
     var action = arguments[1];
 
     switch (action.type) {
@@ -6130,13 +6170,13 @@ var defaultState = {
  *
  */
 function reduce() {
-    var state = arguments.length <= 0 || arguments[0] === undefined ? defaultState : arguments[0];
+    var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : defaultState;
     var action = arguments[1];
-    var byId = state.byId;
-    var list = state.list;
-    var listIndex = state.listIndex;
-    var view = state.view;
-    var viewIndex = state.viewIndex;
+    var byId = state.byId,
+        list = state.list,
+        listIndex = state.listIndex,
+        view = state.view,
+        viewIndex = state.viewIndex;
 
 
     switch (action.type) {
@@ -6237,28 +6277,28 @@ function reduce() {
 }
 
 function setFilter() {
-    var filter = arguments.length <= 0 || arguments[0] === undefined ? defaultFilter : arguments[0];
-    var sort = arguments.length <= 1 || arguments[1] === undefined ? defaultSort : arguments[1];
+    var filter = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : defaultFilter;
+    var sort = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : defaultSort;
 
     return { type: SET_FILTER, filter: filter, sort: sort };
 }
 
 function setSort() {
-    var sort = arguments.length <= 0 || arguments[0] === undefined ? defaultSort : arguments[0];
+    var sort = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : defaultSort;
 
     return { type: SET_SORT, sort: sort };
 }
 
 function add(item) {
-    var filter = arguments.length <= 1 || arguments[1] === undefined ? defaultFilter : arguments[1];
-    var sort = arguments.length <= 2 || arguments[2] === undefined ? defaultSort : arguments[2];
+    var filter = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : defaultFilter;
+    var sort = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : defaultSort;
 
     return { type: ADD, item: item, filter: filter, sort: sort };
 }
 
 function update(item) {
-    var filter = arguments.length <= 1 || arguments[1] === undefined ? defaultFilter : arguments[1];
-    var sort = arguments.length <= 2 || arguments[2] === undefined ? defaultSort : arguments[2];
+    var filter = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : defaultFilter;
+    var sort = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : defaultSort;
 
     return { type: UPDATE, item: item, filter: filter, sort: sort };
 }
@@ -6268,8 +6308,8 @@ function remove(id) {
 }
 
 function receive(list) {
-    var filter = arguments.length <= 1 || arguments[1] === undefined ? defaultFilter : arguments[1];
-    var sort = arguments.length <= 2 || arguments[2] === undefined ? defaultSort : arguments[2];
+    var filter = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : defaultFilter;
+    var sort = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : defaultSort;
 
     return { type: RECEIVE, list: list, filter: filter, sort: sort };
 }
@@ -6420,35 +6460,35 @@ module.exports = function () {
         peg$c22 = function peg$c22(expr) {
       return binding(expr);
     },
-        peg$c23 = "~a",
-        peg$c24 = { type: "literal", value: "~a", description: "\"~a\"" },
+        peg$c23 = "true",
+        peg$c24 = { type: "literal", value: "true", description: "\"true\"" },
         peg$c25 = function peg$c25() {
-      return assetFilter;
-    },
-        peg$c26 = "~e",
-        peg$c27 = { type: "literal", value: "~e", description: "\"~e\"" },
-        peg$c28 = function peg$c28() {
-      return errorFilter;
-    },
-        peg$c29 = "~q",
-        peg$c30 = { type: "literal", value: "~q", description: "\"~q\"" },
-        peg$c31 = function peg$c31() {
-      return noResponseFilter;
-    },
-        peg$c32 = "~s",
-        peg$c33 = { type: "literal", value: "~s", description: "\"~s\"" },
-        peg$c34 = function peg$c34() {
-      return responseFilter;
-    },
-        peg$c35 = "true",
-        peg$c36 = { type: "literal", value: "true", description: "\"true\"" },
-        peg$c37 = function peg$c37() {
       return trueFilter;
     },
-        peg$c38 = "false",
-        peg$c39 = { type: "literal", value: "false", description: "\"false\"" },
-        peg$c40 = function peg$c40() {
+        peg$c26 = "false",
+        peg$c27 = { type: "literal", value: "false", description: "\"false\"" },
+        peg$c28 = function peg$c28() {
       return falseFilter;
+    },
+        peg$c29 = "~a",
+        peg$c30 = { type: "literal", value: "~a", description: "\"~a\"" },
+        peg$c31 = function peg$c31() {
+      return assetFilter;
+    },
+        peg$c32 = "~b",
+        peg$c33 = { type: "literal", value: "~b", description: "\"~b\"" },
+        peg$c34 = function peg$c34(s) {
+      return body(s);
+    },
+        peg$c35 = "~bq",
+        peg$c36 = { type: "literal", value: "~bq", description: "\"~bq\"" },
+        peg$c37 = function peg$c37(s) {
+      return requestBody(s);
+    },
+        peg$c38 = "~bs",
+        peg$c39 = { type: "literal", value: "~bs", description: "\"~bs\"" },
+        peg$c40 = function peg$c40(s) {
+      return responseBody(s);
     },
         peg$c41 = "~c",
         peg$c42 = { type: "literal", value: "~c", description: "\"~c\"" },
@@ -6460,87 +6500,127 @@ module.exports = function () {
         peg$c46 = function peg$c46(s) {
       return domain(s);
     },
-        peg$c47 = "~h",
-        peg$c48 = { type: "literal", value: "~h", description: "\"~h\"" },
+        peg$c47 = "~dst",
+        peg$c48 = { type: "literal", value: "~dst", description: "\"~dst\"" },
         peg$c49 = function peg$c49(s) {
+      return destination(s);
+    },
+        peg$c50 = "~e",
+        peg$c51 = { type: "literal", value: "~e", description: "\"~e\"" },
+        peg$c52 = function peg$c52() {
+      return errorFilter;
+    },
+        peg$c53 = "~h",
+        peg$c54 = { type: "literal", value: "~h", description: "\"~h\"" },
+        peg$c55 = function peg$c55(s) {
       return header(s);
     },
-        peg$c50 = "~hq",
-        peg$c51 = { type: "literal", value: "~hq", description: "\"~hq\"" },
-        peg$c52 = function peg$c52(s) {
+        peg$c56 = "~hq",
+        peg$c57 = { type: "literal", value: "~hq", description: "\"~hq\"" },
+        peg$c58 = function peg$c58(s) {
       return requestHeader(s);
     },
-        peg$c53 = "~hs",
-        peg$c54 = { type: "literal", value: "~hs", description: "\"~hs\"" },
-        peg$c55 = function peg$c55(s) {
+        peg$c59 = "~hs",
+        peg$c60 = { type: "literal", value: "~hs", description: "\"~hs\"" },
+        peg$c61 = function peg$c61(s) {
       return responseHeader(s);
     },
-        peg$c56 = "~m",
-        peg$c57 = { type: "literal", value: "~m", description: "\"~m\"" },
-        peg$c58 = function peg$c58(s) {
+        peg$c62 = "~http",
+        peg$c63 = { type: "literal", value: "~http", description: "\"~http\"" },
+        peg$c64 = function peg$c64() {
+      return httpFilter;
+    },
+        peg$c65 = "~m",
+        peg$c66 = { type: "literal", value: "~m", description: "\"~m\"" },
+        peg$c67 = function peg$c67(s) {
       return method(s);
     },
-        peg$c59 = "~t",
-        peg$c60 = { type: "literal", value: "~t", description: "\"~t\"" },
-        peg$c61 = function peg$c61(s) {
+        peg$c68 = "~marked",
+        peg$c69 = { type: "literal", value: "~marked", description: "\"~marked\"" },
+        peg$c70 = function peg$c70() {
+      return markedFilter;
+    },
+        peg$c71 = "~q",
+        peg$c72 = { type: "literal", value: "~q", description: "\"~q\"" },
+        peg$c73 = function peg$c73() {
+      return noResponseFilter;
+    },
+        peg$c74 = "~src",
+        peg$c75 = { type: "literal", value: "~src", description: "\"~src\"" },
+        peg$c76 = function peg$c76(s) {
+      return source(s);
+    },
+        peg$c77 = "~s",
+        peg$c78 = { type: "literal", value: "~s", description: "\"~s\"" },
+        peg$c79 = function peg$c79() {
+      return responseFilter;
+    },
+        peg$c80 = "~t",
+        peg$c81 = { type: "literal", value: "~t", description: "\"~t\"" },
+        peg$c82 = function peg$c82(s) {
       return contentType(s);
     },
-        peg$c62 = "~tq",
-        peg$c63 = { type: "literal", value: "~tq", description: "\"~tq\"" },
-        peg$c64 = function peg$c64(s) {
+        peg$c83 = "~tcp",
+        peg$c84 = { type: "literal", value: "~tcp", description: "\"~tcp\"" },
+        peg$c85 = function peg$c85() {
+      return tcpFilter;
+    },
+        peg$c86 = "~tq",
+        peg$c87 = { type: "literal", value: "~tq", description: "\"~tq\"" },
+        peg$c88 = function peg$c88(s) {
       return requestContentType(s);
     },
-        peg$c65 = "~ts",
-        peg$c66 = { type: "literal", value: "~ts", description: "\"~ts\"" },
-        peg$c67 = function peg$c67(s) {
+        peg$c89 = "~ts",
+        peg$c90 = { type: "literal", value: "~ts", description: "\"~ts\"" },
+        peg$c91 = function peg$c91(s) {
       return responseContentType(s);
     },
-        peg$c68 = "~u",
-        peg$c69 = { type: "literal", value: "~u", description: "\"~u\"" },
-        peg$c70 = function peg$c70(s) {
+        peg$c92 = "~u",
+        peg$c93 = { type: "literal", value: "~u", description: "\"~u\"" },
+        peg$c94 = function peg$c94(s) {
       return url(s);
     },
-        peg$c71 = { type: "other", description: "integer" },
-        peg$c72 = /^['"]/,
-        peg$c73 = { type: "class", value: "['\"]", description: "['\"]" },
-        peg$c74 = /^[0-9]/,
-        peg$c75 = { type: "class", value: "[0-9]", description: "[0-9]" },
-        peg$c76 = function peg$c76(digits) {
+        peg$c95 = { type: "other", description: "integer" },
+        peg$c96 = /^['"]/,
+        peg$c97 = { type: "class", value: "['\"]", description: "['\"]" },
+        peg$c98 = /^[0-9]/,
+        peg$c99 = { type: "class", value: "[0-9]", description: "[0-9]" },
+        peg$c100 = function peg$c100(digits) {
       return parseInt(digits.join(""), 10);
     },
-        peg$c77 = { type: "other", description: "string" },
-        peg$c78 = "\"",
-        peg$c79 = { type: "literal", value: "\"", description: "\"\\\"\"" },
-        peg$c80 = function peg$c80(chars) {
+        peg$c101 = { type: "other", description: "string" },
+        peg$c102 = "\"",
+        peg$c103 = { type: "literal", value: "\"", description: "\"\\\"\"" },
+        peg$c104 = function peg$c104(chars) {
       return chars.join("");
     },
-        peg$c81 = "'",
-        peg$c82 = { type: "literal", value: "'", description: "\"'\"" },
-        peg$c83 = /^["\\]/,
-        peg$c84 = { type: "class", value: "[\"\\\\]", description: "[\"\\\\]" },
-        peg$c85 = { type: "any", description: "any character" },
-        peg$c86 = function peg$c86(char) {
+        peg$c105 = "'",
+        peg$c106 = { type: "literal", value: "'", description: "\"'\"" },
+        peg$c107 = /^["\\]/,
+        peg$c108 = { type: "class", value: "[\"\\\\]", description: "[\"\\\\]" },
+        peg$c109 = { type: "any", description: "any character" },
+        peg$c110 = function peg$c110(char) {
       return char;
     },
-        peg$c87 = "\\",
-        peg$c88 = { type: "literal", value: "\\", description: "\"\\\\\"" },
-        peg$c89 = /^['\\]/,
-        peg$c90 = { type: "class", value: "['\\\\]", description: "['\\\\]" },
-        peg$c91 = /^['"\\]/,
-        peg$c92 = { type: "class", value: "['\"\\\\]", description: "['\"\\\\]" },
-        peg$c93 = "n",
-        peg$c94 = { type: "literal", value: "n", description: "\"n\"" },
-        peg$c95 = function peg$c95() {
+        peg$c111 = "\\",
+        peg$c112 = { type: "literal", value: "\\", description: "\"\\\\\"" },
+        peg$c113 = /^['\\]/,
+        peg$c114 = { type: "class", value: "['\\\\]", description: "['\\\\]" },
+        peg$c115 = /^['"\\]/,
+        peg$c116 = { type: "class", value: "['\"\\\\]", description: "['\"\\\\]" },
+        peg$c117 = "n",
+        peg$c118 = { type: "literal", value: "n", description: "\"n\"" },
+        peg$c119 = function peg$c119() {
       return "\n";
     },
-        peg$c96 = "r",
-        peg$c97 = { type: "literal", value: "r", description: "\"r\"" },
-        peg$c98 = function peg$c98() {
+        peg$c120 = "r",
+        peg$c121 = { type: "literal", value: "r", description: "\"r\"" },
+        peg$c122 = function peg$c122() {
       return "\r";
     },
-        peg$c99 = "t",
-        peg$c100 = { type: "literal", value: "t", description: "\"t\"" },
-        peg$c101 = function peg$c101() {
+        peg$c123 = "t",
+        peg$c124 = { type: "literal", value: "t", description: "\"t\"" },
+        peg$c125 = function peg$c125() {
       return "\t";
     },
         peg$currPos = 0,
@@ -7058,262 +7138,64 @@ module.exports = function () {
     }
 
     function peg$parseExpr() {
-      var s0;
-
-      s0 = peg$parseNullaryExpr();
-      if (s0 === peg$FAILED) {
-        s0 = peg$parseUnaryExpr();
-      }
-
-      return s0;
-    }
-
-    function peg$parseNullaryExpr() {
-      var s0, s1;
-
-      s0 = peg$parseBooleanLiteral();
-      if (s0 === peg$FAILED) {
-        s0 = peg$currPos;
-        if (input.substr(peg$currPos, 2) === peg$c23) {
-          s1 = peg$c23;
-          peg$currPos += 2;
-        } else {
-          s1 = peg$FAILED;
-          if (peg$silentFails === 0) {
-            peg$fail(peg$c24);
-          }
-        }
-        if (s1 !== peg$FAILED) {
-          peg$savedPos = s0;
-          s1 = peg$c25();
-        }
-        s0 = s1;
-        if (s0 === peg$FAILED) {
-          s0 = peg$currPos;
-          if (input.substr(peg$currPos, 2) === peg$c26) {
-            s1 = peg$c26;
-            peg$currPos += 2;
-          } else {
-            s1 = peg$FAILED;
-            if (peg$silentFails === 0) {
-              peg$fail(peg$c27);
-            }
-          }
-          if (s1 !== peg$FAILED) {
-            peg$savedPos = s0;
-            s1 = peg$c28();
-          }
-          s0 = s1;
-          if (s0 === peg$FAILED) {
-            s0 = peg$currPos;
-            if (input.substr(peg$currPos, 2) === peg$c29) {
-              s1 = peg$c29;
-              peg$currPos += 2;
-            } else {
-              s1 = peg$FAILED;
-              if (peg$silentFails === 0) {
-                peg$fail(peg$c30);
-              }
-            }
-            if (s1 !== peg$FAILED) {
-              peg$savedPos = s0;
-              s1 = peg$c31();
-            }
-            s0 = s1;
-            if (s0 === peg$FAILED) {
-              s0 = peg$currPos;
-              if (input.substr(peg$currPos, 2) === peg$c32) {
-                s1 = peg$c32;
-                peg$currPos += 2;
-              } else {
-                s1 = peg$FAILED;
-                if (peg$silentFails === 0) {
-                  peg$fail(peg$c33);
-                }
-              }
-              if (s1 !== peg$FAILED) {
-                peg$savedPos = s0;
-                s1 = peg$c34();
-              }
-              s0 = s1;
-            }
-          }
-        }
-      }
-
-      return s0;
-    }
-
-    function peg$parseBooleanLiteral() {
-      var s0, s1;
+      var s0, s1, s2, s3;
 
       s0 = peg$currPos;
-      if (input.substr(peg$currPos, 4) === peg$c35) {
-        s1 = peg$c35;
+      if (input.substr(peg$currPos, 4) === peg$c23) {
+        s1 = peg$c23;
         peg$currPos += 4;
       } else {
         s1 = peg$FAILED;
         if (peg$silentFails === 0) {
-          peg$fail(peg$c36);
+          peg$fail(peg$c24);
         }
       }
       if (s1 !== peg$FAILED) {
         peg$savedPos = s0;
-        s1 = peg$c37();
+        s1 = peg$c25();
       }
       s0 = s1;
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
-        if (input.substr(peg$currPos, 5) === peg$c38) {
-          s1 = peg$c38;
+        if (input.substr(peg$currPos, 5) === peg$c26) {
+          s1 = peg$c26;
           peg$currPos += 5;
         } else {
           s1 = peg$FAILED;
           if (peg$silentFails === 0) {
-            peg$fail(peg$c39);
+            peg$fail(peg$c27);
           }
         }
         if (s1 !== peg$FAILED) {
           peg$savedPos = s0;
-          s1 = peg$c40();
+          s1 = peg$c28();
         }
         s0 = s1;
-      }
-
-      return s0;
-    }
-
-    function peg$parseUnaryExpr() {
-      var s0, s1, s2, s3;
-
-      s0 = peg$currPos;
-      if (input.substr(peg$currPos, 2) === peg$c41) {
-        s1 = peg$c41;
-        peg$currPos += 2;
-      } else {
-        s1 = peg$FAILED;
-        if (peg$silentFails === 0) {
-          peg$fail(peg$c42);
-        }
-      }
-      if (s1 !== peg$FAILED) {
-        s2 = [];
-        s3 = peg$parsews();
-        if (s3 !== peg$FAILED) {
-          while (s3 !== peg$FAILED) {
-            s2.push(s3);
-            s3 = peg$parsews();
-          }
-        } else {
-          s2 = peg$FAILED;
-        }
-        if (s2 !== peg$FAILED) {
-          s3 = peg$parseIntegerLiteral();
-          if (s3 !== peg$FAILED) {
-            peg$savedPos = s0;
-            s1 = peg$c43(s3);
-            s0 = s1;
-          } else {
-            peg$currPos = s0;
-            s0 = peg$FAILED;
-          }
-        } else {
-          peg$currPos = s0;
-          s0 = peg$FAILED;
-        }
-      } else {
-        peg$currPos = s0;
-        s0 = peg$FAILED;
-      }
-      if (s0 === peg$FAILED) {
-        s0 = peg$currPos;
-        if (input.substr(peg$currPos, 2) === peg$c44) {
-          s1 = peg$c44;
-          peg$currPos += 2;
-        } else {
-          s1 = peg$FAILED;
-          if (peg$silentFails === 0) {
-            peg$fail(peg$c45);
-          }
-        }
-        if (s1 !== peg$FAILED) {
-          s2 = [];
-          s3 = peg$parsews();
-          if (s3 !== peg$FAILED) {
-            while (s3 !== peg$FAILED) {
-              s2.push(s3);
-              s3 = peg$parsews();
-            }
-          } else {
-            s2 = peg$FAILED;
-          }
-          if (s2 !== peg$FAILED) {
-            s3 = peg$parseStringLiteral();
-            if (s3 !== peg$FAILED) {
-              peg$savedPos = s0;
-              s1 = peg$c46(s3);
-              s0 = s1;
-            } else {
-              peg$currPos = s0;
-              s0 = peg$FAILED;
-            }
-          } else {
-            peg$currPos = s0;
-            s0 = peg$FAILED;
-          }
-        } else {
-          peg$currPos = s0;
-          s0 = peg$FAILED;
-        }
         if (s0 === peg$FAILED) {
           s0 = peg$currPos;
-          if (input.substr(peg$currPos, 2) === peg$c47) {
-            s1 = peg$c47;
+          if (input.substr(peg$currPos, 2) === peg$c29) {
+            s1 = peg$c29;
             peg$currPos += 2;
           } else {
             s1 = peg$FAILED;
             if (peg$silentFails === 0) {
-              peg$fail(peg$c48);
+              peg$fail(peg$c30);
             }
           }
           if (s1 !== peg$FAILED) {
-            s2 = [];
-            s3 = peg$parsews();
-            if (s3 !== peg$FAILED) {
-              while (s3 !== peg$FAILED) {
-                s2.push(s3);
-                s3 = peg$parsews();
-              }
-            } else {
-              s2 = peg$FAILED;
-            }
-            if (s2 !== peg$FAILED) {
-              s3 = peg$parseStringLiteral();
-              if (s3 !== peg$FAILED) {
-                peg$savedPos = s0;
-                s1 = peg$c49(s3);
-                s0 = s1;
-              } else {
-                peg$currPos = s0;
-                s0 = peg$FAILED;
-              }
-            } else {
-              peg$currPos = s0;
-              s0 = peg$FAILED;
-            }
-          } else {
-            peg$currPos = s0;
-            s0 = peg$FAILED;
+            peg$savedPos = s0;
+            s1 = peg$c31();
           }
+          s0 = s1;
           if (s0 === peg$FAILED) {
             s0 = peg$currPos;
-            if (input.substr(peg$currPos, 3) === peg$c50) {
-              s1 = peg$c50;
-              peg$currPos += 3;
+            if (input.substr(peg$currPos, 2) === peg$c32) {
+              s1 = peg$c32;
+              peg$currPos += 2;
             } else {
               s1 = peg$FAILED;
               if (peg$silentFails === 0) {
-                peg$fail(peg$c51);
+                peg$fail(peg$c33);
               }
             }
             if (s1 !== peg$FAILED) {
@@ -7331,7 +7213,7 @@ module.exports = function () {
                 s3 = peg$parseStringLiteral();
                 if (s3 !== peg$FAILED) {
                   peg$savedPos = s0;
-                  s1 = peg$c52(s3);
+                  s1 = peg$c34(s3);
                   s0 = s1;
                 } else {
                   peg$currPos = s0;
@@ -7347,13 +7229,13 @@ module.exports = function () {
             }
             if (s0 === peg$FAILED) {
               s0 = peg$currPos;
-              if (input.substr(peg$currPos, 3) === peg$c53) {
-                s1 = peg$c53;
+              if (input.substr(peg$currPos, 3) === peg$c35) {
+                s1 = peg$c35;
                 peg$currPos += 3;
               } else {
                 s1 = peg$FAILED;
                 if (peg$silentFails === 0) {
-                  peg$fail(peg$c54);
+                  peg$fail(peg$c36);
                 }
               }
               if (s1 !== peg$FAILED) {
@@ -7371,7 +7253,7 @@ module.exports = function () {
                   s3 = peg$parseStringLiteral();
                   if (s3 !== peg$FAILED) {
                     peg$savedPos = s0;
-                    s1 = peg$c55(s3);
+                    s1 = peg$c37(s3);
                     s0 = s1;
                   } else {
                     peg$currPos = s0;
@@ -7387,13 +7269,13 @@ module.exports = function () {
               }
               if (s0 === peg$FAILED) {
                 s0 = peg$currPos;
-                if (input.substr(peg$currPos, 2) === peg$c56) {
-                  s1 = peg$c56;
-                  peg$currPos += 2;
+                if (input.substr(peg$currPos, 3) === peg$c38) {
+                  s1 = peg$c38;
+                  peg$currPos += 3;
                 } else {
                   s1 = peg$FAILED;
                   if (peg$silentFails === 0) {
-                    peg$fail(peg$c57);
+                    peg$fail(peg$c39);
                   }
                 }
                 if (s1 !== peg$FAILED) {
@@ -7411,7 +7293,7 @@ module.exports = function () {
                     s3 = peg$parseStringLiteral();
                     if (s3 !== peg$FAILED) {
                       peg$savedPos = s0;
-                      s1 = peg$c58(s3);
+                      s1 = peg$c40(s3);
                       s0 = s1;
                     } else {
                       peg$currPos = s0;
@@ -7427,13 +7309,13 @@ module.exports = function () {
                 }
                 if (s0 === peg$FAILED) {
                   s0 = peg$currPos;
-                  if (input.substr(peg$currPos, 2) === peg$c59) {
-                    s1 = peg$c59;
+                  if (input.substr(peg$currPos, 2) === peg$c41) {
+                    s1 = peg$c41;
                     peg$currPos += 2;
                   } else {
                     s1 = peg$FAILED;
                     if (peg$silentFails === 0) {
-                      peg$fail(peg$c60);
+                      peg$fail(peg$c42);
                     }
                   }
                   if (s1 !== peg$FAILED) {
@@ -7448,10 +7330,10 @@ module.exports = function () {
                       s2 = peg$FAILED;
                     }
                     if (s2 !== peg$FAILED) {
-                      s3 = peg$parseStringLiteral();
+                      s3 = peg$parseIntegerLiteral();
                       if (s3 !== peg$FAILED) {
                         peg$savedPos = s0;
-                        s1 = peg$c61(s3);
+                        s1 = peg$c43(s3);
                         s0 = s1;
                       } else {
                         peg$currPos = s0;
@@ -7467,13 +7349,13 @@ module.exports = function () {
                   }
                   if (s0 === peg$FAILED) {
                     s0 = peg$currPos;
-                    if (input.substr(peg$currPos, 3) === peg$c62) {
-                      s1 = peg$c62;
-                      peg$currPos += 3;
+                    if (input.substr(peg$currPos, 2) === peg$c44) {
+                      s1 = peg$c44;
+                      peg$currPos += 2;
                     } else {
                       s1 = peg$FAILED;
                       if (peg$silentFails === 0) {
-                        peg$fail(peg$c63);
+                        peg$fail(peg$c45);
                       }
                     }
                     if (s1 !== peg$FAILED) {
@@ -7491,7 +7373,7 @@ module.exports = function () {
                         s3 = peg$parseStringLiteral();
                         if (s3 !== peg$FAILED) {
                           peg$savedPos = s0;
-                          s1 = peg$c64(s3);
+                          s1 = peg$c46(s3);
                           s0 = s1;
                         } else {
                           peg$currPos = s0;
@@ -7507,13 +7389,13 @@ module.exports = function () {
                     }
                     if (s0 === peg$FAILED) {
                       s0 = peg$currPos;
-                      if (input.substr(peg$currPos, 3) === peg$c65) {
-                        s1 = peg$c65;
-                        peg$currPos += 3;
+                      if (input.substr(peg$currPos, 4) === peg$c47) {
+                        s1 = peg$c47;
+                        peg$currPos += 4;
                       } else {
                         s1 = peg$FAILED;
                         if (peg$silentFails === 0) {
-                          peg$fail(peg$c66);
+                          peg$fail(peg$c48);
                         }
                       }
                       if (s1 !== peg$FAILED) {
@@ -7531,7 +7413,7 @@ module.exports = function () {
                           s3 = peg$parseStringLiteral();
                           if (s3 !== peg$FAILED) {
                             peg$savedPos = s0;
-                            s1 = peg$c67(s3);
+                            s1 = peg$c49(s3);
                             s0 = s1;
                           } else {
                             peg$currPos = s0;
@@ -7547,32 +7429,52 @@ module.exports = function () {
                       }
                       if (s0 === peg$FAILED) {
                         s0 = peg$currPos;
-                        if (input.substr(peg$currPos, 2) === peg$c68) {
-                          s1 = peg$c68;
+                        if (input.substr(peg$currPos, 2) === peg$c50) {
+                          s1 = peg$c50;
                           peg$currPos += 2;
                         } else {
                           s1 = peg$FAILED;
                           if (peg$silentFails === 0) {
-                            peg$fail(peg$c69);
+                            peg$fail(peg$c51);
                           }
                         }
                         if (s1 !== peg$FAILED) {
-                          s2 = [];
-                          s3 = peg$parsews();
-                          if (s3 !== peg$FAILED) {
-                            while (s3 !== peg$FAILED) {
-                              s2.push(s3);
-                              s3 = peg$parsews();
-                            }
+                          peg$savedPos = s0;
+                          s1 = peg$c52();
+                        }
+                        s0 = s1;
+                        if (s0 === peg$FAILED) {
+                          s0 = peg$currPos;
+                          if (input.substr(peg$currPos, 2) === peg$c53) {
+                            s1 = peg$c53;
+                            peg$currPos += 2;
                           } else {
-                            s2 = peg$FAILED;
+                            s1 = peg$FAILED;
+                            if (peg$silentFails === 0) {
+                              peg$fail(peg$c54);
+                            }
                           }
-                          if (s2 !== peg$FAILED) {
-                            s3 = peg$parseStringLiteral();
+                          if (s1 !== peg$FAILED) {
+                            s2 = [];
+                            s3 = peg$parsews();
                             if (s3 !== peg$FAILED) {
-                              peg$savedPos = s0;
-                              s1 = peg$c70(s3);
-                              s0 = s1;
+                              while (s3 !== peg$FAILED) {
+                                s2.push(s3);
+                                s3 = peg$parsews();
+                              }
+                            } else {
+                              s2 = peg$FAILED;
+                            }
+                            if (s2 !== peg$FAILED) {
+                              s3 = peg$parseStringLiteral();
+                              if (s3 !== peg$FAILED) {
+                                peg$savedPos = s0;
+                                s1 = peg$c55(s3);
+                                s0 = s1;
+                              } else {
+                                peg$currPos = s0;
+                                s0 = peg$FAILED;
+                              }
                             } else {
                               peg$currPos = s0;
                               s0 = peg$FAILED;
@@ -7581,18 +7483,428 @@ module.exports = function () {
                             peg$currPos = s0;
                             s0 = peg$FAILED;
                           }
-                        } else {
-                          peg$currPos = s0;
-                          s0 = peg$FAILED;
-                        }
-                        if (s0 === peg$FAILED) {
-                          s0 = peg$currPos;
-                          s1 = peg$parseStringLiteral();
-                          if (s1 !== peg$FAILED) {
-                            peg$savedPos = s0;
-                            s1 = peg$c70(s1);
+                          if (s0 === peg$FAILED) {
+                            s0 = peg$currPos;
+                            if (input.substr(peg$currPos, 3) === peg$c56) {
+                              s1 = peg$c56;
+                              peg$currPos += 3;
+                            } else {
+                              s1 = peg$FAILED;
+                              if (peg$silentFails === 0) {
+                                peg$fail(peg$c57);
+                              }
+                            }
+                            if (s1 !== peg$FAILED) {
+                              s2 = [];
+                              s3 = peg$parsews();
+                              if (s3 !== peg$FAILED) {
+                                while (s3 !== peg$FAILED) {
+                                  s2.push(s3);
+                                  s3 = peg$parsews();
+                                }
+                              } else {
+                                s2 = peg$FAILED;
+                              }
+                              if (s2 !== peg$FAILED) {
+                                s3 = peg$parseStringLiteral();
+                                if (s3 !== peg$FAILED) {
+                                  peg$savedPos = s0;
+                                  s1 = peg$c58(s3);
+                                  s0 = s1;
+                                } else {
+                                  peg$currPos = s0;
+                                  s0 = peg$FAILED;
+                                }
+                              } else {
+                                peg$currPos = s0;
+                                s0 = peg$FAILED;
+                              }
+                            } else {
+                              peg$currPos = s0;
+                              s0 = peg$FAILED;
+                            }
+                            if (s0 === peg$FAILED) {
+                              s0 = peg$currPos;
+                              if (input.substr(peg$currPos, 3) === peg$c59) {
+                                s1 = peg$c59;
+                                peg$currPos += 3;
+                              } else {
+                                s1 = peg$FAILED;
+                                if (peg$silentFails === 0) {
+                                  peg$fail(peg$c60);
+                                }
+                              }
+                              if (s1 !== peg$FAILED) {
+                                s2 = [];
+                                s3 = peg$parsews();
+                                if (s3 !== peg$FAILED) {
+                                  while (s3 !== peg$FAILED) {
+                                    s2.push(s3);
+                                    s3 = peg$parsews();
+                                  }
+                                } else {
+                                  s2 = peg$FAILED;
+                                }
+                                if (s2 !== peg$FAILED) {
+                                  s3 = peg$parseStringLiteral();
+                                  if (s3 !== peg$FAILED) {
+                                    peg$savedPos = s0;
+                                    s1 = peg$c61(s3);
+                                    s0 = s1;
+                                  } else {
+                                    peg$currPos = s0;
+                                    s0 = peg$FAILED;
+                                  }
+                                } else {
+                                  peg$currPos = s0;
+                                  s0 = peg$FAILED;
+                                }
+                              } else {
+                                peg$currPos = s0;
+                                s0 = peg$FAILED;
+                              }
+                              if (s0 === peg$FAILED) {
+                                s0 = peg$currPos;
+                                if (input.substr(peg$currPos, 5) === peg$c62) {
+                                  s1 = peg$c62;
+                                  peg$currPos += 5;
+                                } else {
+                                  s1 = peg$FAILED;
+                                  if (peg$silentFails === 0) {
+                                    peg$fail(peg$c63);
+                                  }
+                                }
+                                if (s1 !== peg$FAILED) {
+                                  peg$savedPos = s0;
+                                  s1 = peg$c64();
+                                }
+                                s0 = s1;
+                                if (s0 === peg$FAILED) {
+                                  s0 = peg$currPos;
+                                  if (input.substr(peg$currPos, 2) === peg$c65) {
+                                    s1 = peg$c65;
+                                    peg$currPos += 2;
+                                  } else {
+                                    s1 = peg$FAILED;
+                                    if (peg$silentFails === 0) {
+                                      peg$fail(peg$c66);
+                                    }
+                                  }
+                                  if (s1 !== peg$FAILED) {
+                                    s2 = [];
+                                    s3 = peg$parsews();
+                                    if (s3 !== peg$FAILED) {
+                                      while (s3 !== peg$FAILED) {
+                                        s2.push(s3);
+                                        s3 = peg$parsews();
+                                      }
+                                    } else {
+                                      s2 = peg$FAILED;
+                                    }
+                                    if (s2 !== peg$FAILED) {
+                                      s3 = peg$parseStringLiteral();
+                                      if (s3 !== peg$FAILED) {
+                                        peg$savedPos = s0;
+                                        s1 = peg$c67(s3);
+                                        s0 = s1;
+                                      } else {
+                                        peg$currPos = s0;
+                                        s0 = peg$FAILED;
+                                      }
+                                    } else {
+                                      peg$currPos = s0;
+                                      s0 = peg$FAILED;
+                                    }
+                                  } else {
+                                    peg$currPos = s0;
+                                    s0 = peg$FAILED;
+                                  }
+                                  if (s0 === peg$FAILED) {
+                                    s0 = peg$currPos;
+                                    if (input.substr(peg$currPos, 7) === peg$c68) {
+                                      s1 = peg$c68;
+                                      peg$currPos += 7;
+                                    } else {
+                                      s1 = peg$FAILED;
+                                      if (peg$silentFails === 0) {
+                                        peg$fail(peg$c69);
+                                      }
+                                    }
+                                    if (s1 !== peg$FAILED) {
+                                      peg$savedPos = s0;
+                                      s1 = peg$c70();
+                                    }
+                                    s0 = s1;
+                                    if (s0 === peg$FAILED) {
+                                      s0 = peg$currPos;
+                                      if (input.substr(peg$currPos, 2) === peg$c71) {
+                                        s1 = peg$c71;
+                                        peg$currPos += 2;
+                                      } else {
+                                        s1 = peg$FAILED;
+                                        if (peg$silentFails === 0) {
+                                          peg$fail(peg$c72);
+                                        }
+                                      }
+                                      if (s1 !== peg$FAILED) {
+                                        peg$savedPos = s0;
+                                        s1 = peg$c73();
+                                      }
+                                      s0 = s1;
+                                      if (s0 === peg$FAILED) {
+                                        s0 = peg$currPos;
+                                        if (input.substr(peg$currPos, 4) === peg$c74) {
+                                          s1 = peg$c74;
+                                          peg$currPos += 4;
+                                        } else {
+                                          s1 = peg$FAILED;
+                                          if (peg$silentFails === 0) {
+                                            peg$fail(peg$c75);
+                                          }
+                                        }
+                                        if (s1 !== peg$FAILED) {
+                                          s2 = [];
+                                          s3 = peg$parsews();
+                                          if (s3 !== peg$FAILED) {
+                                            while (s3 !== peg$FAILED) {
+                                              s2.push(s3);
+                                              s3 = peg$parsews();
+                                            }
+                                          } else {
+                                            s2 = peg$FAILED;
+                                          }
+                                          if (s2 !== peg$FAILED) {
+                                            s3 = peg$parseStringLiteral();
+                                            if (s3 !== peg$FAILED) {
+                                              peg$savedPos = s0;
+                                              s1 = peg$c76(s3);
+                                              s0 = s1;
+                                            } else {
+                                              peg$currPos = s0;
+                                              s0 = peg$FAILED;
+                                            }
+                                          } else {
+                                            peg$currPos = s0;
+                                            s0 = peg$FAILED;
+                                          }
+                                        } else {
+                                          peg$currPos = s0;
+                                          s0 = peg$FAILED;
+                                        }
+                                        if (s0 === peg$FAILED) {
+                                          s0 = peg$currPos;
+                                          if (input.substr(peg$currPos, 2) === peg$c77) {
+                                            s1 = peg$c77;
+                                            peg$currPos += 2;
+                                          } else {
+                                            s1 = peg$FAILED;
+                                            if (peg$silentFails === 0) {
+                                              peg$fail(peg$c78);
+                                            }
+                                          }
+                                          if (s1 !== peg$FAILED) {
+                                            peg$savedPos = s0;
+                                            s1 = peg$c79();
+                                          }
+                                          s0 = s1;
+                                          if (s0 === peg$FAILED) {
+                                            s0 = peg$currPos;
+                                            if (input.substr(peg$currPos, 2) === peg$c80) {
+                                              s1 = peg$c80;
+                                              peg$currPos += 2;
+                                            } else {
+                                              s1 = peg$FAILED;
+                                              if (peg$silentFails === 0) {
+                                                peg$fail(peg$c81);
+                                              }
+                                            }
+                                            if (s1 !== peg$FAILED) {
+                                              s2 = [];
+                                              s3 = peg$parsews();
+                                              if (s3 !== peg$FAILED) {
+                                                while (s3 !== peg$FAILED) {
+                                                  s2.push(s3);
+                                                  s3 = peg$parsews();
+                                                }
+                                              } else {
+                                                s2 = peg$FAILED;
+                                              }
+                                              if (s2 !== peg$FAILED) {
+                                                s3 = peg$parseStringLiteral();
+                                                if (s3 !== peg$FAILED) {
+                                                  peg$savedPos = s0;
+                                                  s1 = peg$c82(s3);
+                                                  s0 = s1;
+                                                } else {
+                                                  peg$currPos = s0;
+                                                  s0 = peg$FAILED;
+                                                }
+                                              } else {
+                                                peg$currPos = s0;
+                                                s0 = peg$FAILED;
+                                              }
+                                            } else {
+                                              peg$currPos = s0;
+                                              s0 = peg$FAILED;
+                                            }
+                                            if (s0 === peg$FAILED) {
+                                              s0 = peg$currPos;
+                                              if (input.substr(peg$currPos, 4) === peg$c83) {
+                                                s1 = peg$c83;
+                                                peg$currPos += 4;
+                                              } else {
+                                                s1 = peg$FAILED;
+                                                if (peg$silentFails === 0) {
+                                                  peg$fail(peg$c84);
+                                                }
+                                              }
+                                              if (s1 !== peg$FAILED) {
+                                                peg$savedPos = s0;
+                                                s1 = peg$c85();
+                                              }
+                                              s0 = s1;
+                                              if (s0 === peg$FAILED) {
+                                                s0 = peg$currPos;
+                                                if (input.substr(peg$currPos, 3) === peg$c86) {
+                                                  s1 = peg$c86;
+                                                  peg$currPos += 3;
+                                                } else {
+                                                  s1 = peg$FAILED;
+                                                  if (peg$silentFails === 0) {
+                                                    peg$fail(peg$c87);
+                                                  }
+                                                }
+                                                if (s1 !== peg$FAILED) {
+                                                  s2 = [];
+                                                  s3 = peg$parsews();
+                                                  if (s3 !== peg$FAILED) {
+                                                    while (s3 !== peg$FAILED) {
+                                                      s2.push(s3);
+                                                      s3 = peg$parsews();
+                                                    }
+                                                  } else {
+                                                    s2 = peg$FAILED;
+                                                  }
+                                                  if (s2 !== peg$FAILED) {
+                                                    s3 = peg$parseStringLiteral();
+                                                    if (s3 !== peg$FAILED) {
+                                                      peg$savedPos = s0;
+                                                      s1 = peg$c88(s3);
+                                                      s0 = s1;
+                                                    } else {
+                                                      peg$currPos = s0;
+                                                      s0 = peg$FAILED;
+                                                    }
+                                                  } else {
+                                                    peg$currPos = s0;
+                                                    s0 = peg$FAILED;
+                                                  }
+                                                } else {
+                                                  peg$currPos = s0;
+                                                  s0 = peg$FAILED;
+                                                }
+                                                if (s0 === peg$FAILED) {
+                                                  s0 = peg$currPos;
+                                                  if (input.substr(peg$currPos, 3) === peg$c89) {
+                                                    s1 = peg$c89;
+                                                    peg$currPos += 3;
+                                                  } else {
+                                                    s1 = peg$FAILED;
+                                                    if (peg$silentFails === 0) {
+                                                      peg$fail(peg$c90);
+                                                    }
+                                                  }
+                                                  if (s1 !== peg$FAILED) {
+                                                    s2 = [];
+                                                    s3 = peg$parsews();
+                                                    if (s3 !== peg$FAILED) {
+                                                      while (s3 !== peg$FAILED) {
+                                                        s2.push(s3);
+                                                        s3 = peg$parsews();
+                                                      }
+                                                    } else {
+                                                      s2 = peg$FAILED;
+                                                    }
+                                                    if (s2 !== peg$FAILED) {
+                                                      s3 = peg$parseStringLiteral();
+                                                      if (s3 !== peg$FAILED) {
+                                                        peg$savedPos = s0;
+                                                        s1 = peg$c91(s3);
+                                                        s0 = s1;
+                                                      } else {
+                                                        peg$currPos = s0;
+                                                        s0 = peg$FAILED;
+                                                      }
+                                                    } else {
+                                                      peg$currPos = s0;
+                                                      s0 = peg$FAILED;
+                                                    }
+                                                  } else {
+                                                    peg$currPos = s0;
+                                                    s0 = peg$FAILED;
+                                                  }
+                                                  if (s0 === peg$FAILED) {
+                                                    s0 = peg$currPos;
+                                                    if (input.substr(peg$currPos, 2) === peg$c92) {
+                                                      s1 = peg$c92;
+                                                      peg$currPos += 2;
+                                                    } else {
+                                                      s1 = peg$FAILED;
+                                                      if (peg$silentFails === 0) {
+                                                        peg$fail(peg$c93);
+                                                      }
+                                                    }
+                                                    if (s1 !== peg$FAILED) {
+                                                      s2 = [];
+                                                      s3 = peg$parsews();
+                                                      if (s3 !== peg$FAILED) {
+                                                        while (s3 !== peg$FAILED) {
+                                                          s2.push(s3);
+                                                          s3 = peg$parsews();
+                                                        }
+                                                      } else {
+                                                        s2 = peg$FAILED;
+                                                      }
+                                                      if (s2 !== peg$FAILED) {
+                                                        s3 = peg$parseStringLiteral();
+                                                        if (s3 !== peg$FAILED) {
+                                                          peg$savedPos = s0;
+                                                          s1 = peg$c94(s3);
+                                                          s0 = s1;
+                                                        } else {
+                                                          peg$currPos = s0;
+                                                          s0 = peg$FAILED;
+                                                        }
+                                                      } else {
+                                                        peg$currPos = s0;
+                                                        s0 = peg$FAILED;
+                                                      }
+                                                    } else {
+                                                      peg$currPos = s0;
+                                                      s0 = peg$FAILED;
+                                                    }
+                                                    if (s0 === peg$FAILED) {
+                                                      s0 = peg$currPos;
+                                                      s1 = peg$parseStringLiteral();
+                                                      if (s1 !== peg$FAILED) {
+                                                        peg$savedPos = s0;
+                                                        s1 = peg$c94(s1);
+                                                      }
+                                                      s0 = s1;
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
                           }
-                          s0 = s1;
                         }
                       }
                     }
@@ -7612,13 +7924,13 @@ module.exports = function () {
 
       peg$silentFails++;
       s0 = peg$currPos;
-      if (peg$c72.test(input.charAt(peg$currPos))) {
+      if (peg$c96.test(input.charAt(peg$currPos))) {
         s1 = input.charAt(peg$currPos);
         peg$currPos++;
       } else {
         s1 = peg$FAILED;
         if (peg$silentFails === 0) {
-          peg$fail(peg$c73);
+          peg$fail(peg$c97);
         }
       }
       if (s1 === peg$FAILED) {
@@ -7626,25 +7938,25 @@ module.exports = function () {
       }
       if (s1 !== peg$FAILED) {
         s2 = [];
-        if (peg$c74.test(input.charAt(peg$currPos))) {
+        if (peg$c98.test(input.charAt(peg$currPos))) {
           s3 = input.charAt(peg$currPos);
           peg$currPos++;
         } else {
           s3 = peg$FAILED;
           if (peg$silentFails === 0) {
-            peg$fail(peg$c75);
+            peg$fail(peg$c99);
           }
         }
         if (s3 !== peg$FAILED) {
           while (s3 !== peg$FAILED) {
             s2.push(s3);
-            if (peg$c74.test(input.charAt(peg$currPos))) {
+            if (peg$c98.test(input.charAt(peg$currPos))) {
               s3 = input.charAt(peg$currPos);
               peg$currPos++;
             } else {
               s3 = peg$FAILED;
               if (peg$silentFails === 0) {
-                peg$fail(peg$c75);
+                peg$fail(peg$c99);
               }
             }
           }
@@ -7652,13 +7964,13 @@ module.exports = function () {
           s2 = peg$FAILED;
         }
         if (s2 !== peg$FAILED) {
-          if (peg$c72.test(input.charAt(peg$currPos))) {
+          if (peg$c96.test(input.charAt(peg$currPos))) {
             s3 = input.charAt(peg$currPos);
             peg$currPos++;
           } else {
             s3 = peg$FAILED;
             if (peg$silentFails === 0) {
-              peg$fail(peg$c73);
+              peg$fail(peg$c97);
             }
           }
           if (s3 === peg$FAILED) {
@@ -7666,7 +7978,7 @@ module.exports = function () {
           }
           if (s3 !== peg$FAILED) {
             peg$savedPos = s0;
-            s1 = peg$c76(s2);
+            s1 = peg$c100(s2);
             s0 = s1;
           } else {
             peg$currPos = s0;
@@ -7684,7 +7996,7 @@ module.exports = function () {
       if (s0 === peg$FAILED) {
         s1 = peg$FAILED;
         if (peg$silentFails === 0) {
-          peg$fail(peg$c71);
+          peg$fail(peg$c95);
         }
       }
 
@@ -7697,12 +8009,12 @@ module.exports = function () {
       peg$silentFails++;
       s0 = peg$currPos;
       if (input.charCodeAt(peg$currPos) === 34) {
-        s1 = peg$c78;
+        s1 = peg$c102;
         peg$currPos++;
       } else {
         s1 = peg$FAILED;
         if (peg$silentFails === 0) {
-          peg$fail(peg$c79);
+          peg$fail(peg$c103);
         }
       }
       if (s1 !== peg$FAILED) {
@@ -7714,17 +8026,17 @@ module.exports = function () {
         }
         if (s2 !== peg$FAILED) {
           if (input.charCodeAt(peg$currPos) === 34) {
-            s3 = peg$c78;
+            s3 = peg$c102;
             peg$currPos++;
           } else {
             s3 = peg$FAILED;
             if (peg$silentFails === 0) {
-              peg$fail(peg$c79);
+              peg$fail(peg$c103);
             }
           }
           if (s3 !== peg$FAILED) {
             peg$savedPos = s0;
-            s1 = peg$c80(s2);
+            s1 = peg$c104(s2);
             s0 = s1;
           } else {
             peg$currPos = s0;
@@ -7741,12 +8053,12 @@ module.exports = function () {
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
         if (input.charCodeAt(peg$currPos) === 39) {
-          s1 = peg$c81;
+          s1 = peg$c105;
           peg$currPos++;
         } else {
           s1 = peg$FAILED;
           if (peg$silentFails === 0) {
-            peg$fail(peg$c82);
+            peg$fail(peg$c106);
           }
         }
         if (s1 !== peg$FAILED) {
@@ -7758,17 +8070,17 @@ module.exports = function () {
           }
           if (s2 !== peg$FAILED) {
             if (input.charCodeAt(peg$currPos) === 39) {
-              s3 = peg$c81;
+              s3 = peg$c105;
               peg$currPos++;
             } else {
               s3 = peg$FAILED;
               if (peg$silentFails === 0) {
-                peg$fail(peg$c82);
+                peg$fail(peg$c106);
               }
             }
             if (s3 !== peg$FAILED) {
               peg$savedPos = s0;
-              s1 = peg$c80(s2);
+              s1 = peg$c104(s2);
               s0 = s1;
             } else {
               peg$currPos = s0;
@@ -7807,7 +8119,7 @@ module.exports = function () {
             }
             if (s2 !== peg$FAILED) {
               peg$savedPos = s0;
-              s1 = peg$c80(s2);
+              s1 = peg$c104(s2);
               s0 = s1;
             } else {
               peg$currPos = s0;
@@ -7823,7 +8135,7 @@ module.exports = function () {
       if (s0 === peg$FAILED) {
         s1 = peg$FAILED;
         if (peg$silentFails === 0) {
-          peg$fail(peg$c77);
+          peg$fail(peg$c101);
         }
       }
 
@@ -7836,13 +8148,13 @@ module.exports = function () {
       s0 = peg$currPos;
       s1 = peg$currPos;
       peg$silentFails++;
-      if (peg$c83.test(input.charAt(peg$currPos))) {
+      if (peg$c107.test(input.charAt(peg$currPos))) {
         s2 = input.charAt(peg$currPos);
         peg$currPos++;
       } else {
         s2 = peg$FAILED;
         if (peg$silentFails === 0) {
-          peg$fail(peg$c84);
+          peg$fail(peg$c108);
         }
       }
       peg$silentFails--;
@@ -7859,12 +8171,12 @@ module.exports = function () {
         } else {
           s2 = peg$FAILED;
           if (peg$silentFails === 0) {
-            peg$fail(peg$c85);
+            peg$fail(peg$c109);
           }
         }
         if (s2 !== peg$FAILED) {
           peg$savedPos = s0;
-          s1 = peg$c86(s2);
+          s1 = peg$c110(s2);
           s0 = s1;
         } else {
           peg$currPos = s0;
@@ -7877,19 +8189,19 @@ module.exports = function () {
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
         if (input.charCodeAt(peg$currPos) === 92) {
-          s1 = peg$c87;
+          s1 = peg$c111;
           peg$currPos++;
         } else {
           s1 = peg$FAILED;
           if (peg$silentFails === 0) {
-            peg$fail(peg$c88);
+            peg$fail(peg$c112);
           }
         }
         if (s1 !== peg$FAILED) {
           s2 = peg$parseEscapeSequence();
           if (s2 !== peg$FAILED) {
             peg$savedPos = s0;
-            s1 = peg$c86(s2);
+            s1 = peg$c110(s2);
             s0 = s1;
           } else {
             peg$currPos = s0;
@@ -7910,13 +8222,13 @@ module.exports = function () {
       s0 = peg$currPos;
       s1 = peg$currPos;
       peg$silentFails++;
-      if (peg$c89.test(input.charAt(peg$currPos))) {
+      if (peg$c113.test(input.charAt(peg$currPos))) {
         s2 = input.charAt(peg$currPos);
         peg$currPos++;
       } else {
         s2 = peg$FAILED;
         if (peg$silentFails === 0) {
-          peg$fail(peg$c90);
+          peg$fail(peg$c114);
         }
       }
       peg$silentFails--;
@@ -7933,12 +8245,12 @@ module.exports = function () {
         } else {
           s2 = peg$FAILED;
           if (peg$silentFails === 0) {
-            peg$fail(peg$c85);
+            peg$fail(peg$c109);
           }
         }
         if (s2 !== peg$FAILED) {
           peg$savedPos = s0;
-          s1 = peg$c86(s2);
+          s1 = peg$c110(s2);
           s0 = s1;
         } else {
           peg$currPos = s0;
@@ -7951,19 +8263,19 @@ module.exports = function () {
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
         if (input.charCodeAt(peg$currPos) === 92) {
-          s1 = peg$c87;
+          s1 = peg$c111;
           peg$currPos++;
         } else {
           s1 = peg$FAILED;
           if (peg$silentFails === 0) {
-            peg$fail(peg$c88);
+            peg$fail(peg$c112);
           }
         }
         if (s1 !== peg$FAILED) {
           s2 = peg$parseEscapeSequence();
           if (s2 !== peg$FAILED) {
             peg$savedPos = s0;
-            s1 = peg$c86(s2);
+            s1 = peg$c110(s2);
             s0 = s1;
           } else {
             peg$currPos = s0;
@@ -7999,12 +8311,12 @@ module.exports = function () {
         } else {
           s2 = peg$FAILED;
           if (peg$silentFails === 0) {
-            peg$fail(peg$c85);
+            peg$fail(peg$c109);
           }
         }
         if (s2 !== peg$FAILED) {
           peg$savedPos = s0;
-          s1 = peg$c86(s2);
+          s1 = peg$c110(s2);
           s0 = s1;
         } else {
           peg$currPos = s0;
@@ -8021,61 +8333,61 @@ module.exports = function () {
     function peg$parseEscapeSequence() {
       var s0, s1;
 
-      if (peg$c91.test(input.charAt(peg$currPos))) {
+      if (peg$c115.test(input.charAt(peg$currPos))) {
         s0 = input.charAt(peg$currPos);
         peg$currPos++;
       } else {
         s0 = peg$FAILED;
         if (peg$silentFails === 0) {
-          peg$fail(peg$c92);
+          peg$fail(peg$c116);
         }
       }
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
         if (input.charCodeAt(peg$currPos) === 110) {
-          s1 = peg$c93;
+          s1 = peg$c117;
           peg$currPos++;
         } else {
           s1 = peg$FAILED;
           if (peg$silentFails === 0) {
-            peg$fail(peg$c94);
+            peg$fail(peg$c118);
           }
         }
         if (s1 !== peg$FAILED) {
           peg$savedPos = s0;
-          s1 = peg$c95();
+          s1 = peg$c119();
         }
         s0 = s1;
         if (s0 === peg$FAILED) {
           s0 = peg$currPos;
           if (input.charCodeAt(peg$currPos) === 114) {
-            s1 = peg$c96;
+            s1 = peg$c120;
             peg$currPos++;
           } else {
             s1 = peg$FAILED;
             if (peg$silentFails === 0) {
-              peg$fail(peg$c97);
+              peg$fail(peg$c121);
             }
           }
           if (s1 !== peg$FAILED) {
             peg$savedPos = s0;
-            s1 = peg$c98();
+            s1 = peg$c122();
           }
           s0 = s1;
           if (s0 === peg$FAILED) {
             s0 = peg$currPos;
             if (input.charCodeAt(peg$currPos) === 116) {
-              s1 = peg$c99;
+              s1 = peg$c123;
               peg$currPos++;
             } else {
               s1 = peg$FAILED;
               if (peg$silentFails === 0) {
-                peg$fail(peg$c100);
+                peg$fail(peg$c124);
               }
             }
             if (s1 !== peg$FAILED) {
               peg$savedPos = s0;
-              s1 = peg$c101();
+              s1 = peg$c125();
             }
             s0 = s1;
           }
@@ -8146,6 +8458,30 @@ module.exports = function () {
       responseCodeFilter.desc = "resp. code is " + code;
       return responseCodeFilter;
     }
+    function body(regex) {
+      regex = new RegExp(regex, "i");
+      function bodyFilter(flow) {
+        return True;
+      }
+      bodyFilter.desc = "body filters are not implemented yet, see https://github.com/mitmproxy/mitmweb/issues/10";
+      return bodyFilter;
+    }
+    function requestBody(regex) {
+      regex = new RegExp(regex, "i");
+      function requestBodyFilter(flow) {
+        return True;
+      }
+      requestBodyFilter.desc = "body filters are not implemented yet, see https://github.com/mitmproxy/mitmweb/issues/10";
+      return requestBodyFilter;
+    }
+    function responseBody(regex) {
+      regex = new RegExp(regex, "i");
+      function responseBodyFilter(flow) {
+        return True;
+      }
+      responseBodyFilter.desc = "body filters are not implemented yet, see https://github.com/mitmproxy/mitmweb/issues/10";
+      return responseBodyFilter;
+    }
     function domain(regex) {
       regex = new RegExp(regex, "i");
       function domainFilter(flow) {
@@ -8153,6 +8489,14 @@ module.exports = function () {
       }
       domainFilter.desc = "domain matches " + regex;
       return domainFilter;
+    }
+    function destination(regex) {
+      regex = new RegExp(regex, "i");
+      function destinationFilter(flow) {
+        return !!flow.server_conn.address && regex.test(flow.server_conn.address[0] + ":" + flow.server_conn.address[1]);
+      }
+      destinationFilter.desc = "destination address matches " + regex;
+      return destinationFilter;
     }
     function errorFilter(flow) {
       return !!flow.error;
@@ -8182,6 +8526,10 @@ module.exports = function () {
       responseHeaderFilter.desc = "resp. header matches " + regex;
       return responseHeaderFilter;
     }
+    function httpFilter(flow) {
+      return flow.type === "http";
+    }
+    httpFilter.desc = "is an HTTP Flow";
     function method(regex) {
       regex = new RegExp(regex, "i");
       function methodFilter(flow) {
@@ -8190,6 +8538,10 @@ module.exports = function () {
       methodFilter.desc = "method matches " + regex;
       return methodFilter;
     }
+    function markedFilter(flow) {
+      return flow.marked;
+    }
+    markedFilter.desc = "is marked";
     function noResponseFilter(flow) {
       return flow.request && !flow.response;
     }
@@ -8198,7 +8550,14 @@ module.exports = function () {
       return !!flow.response;
     }
     responseFilter.desc = "has response";
-
+    function source(regex) {
+      regex = new RegExp(regex, "i");
+      function sourceFilter(flow) {
+        return !!flow.client_conn.address && regex.test(flow.client_conn.address[0] + ":" + flow.client_conn.address[1]);
+      }
+      sourceFilter.desc = "source address matches " + regex;
+      return sourceFilter;
+    }
     function contentType(regex) {
       regex = new RegExp(regex, "i");
       function contentTypeFilter(flow) {
@@ -8207,6 +8566,10 @@ module.exports = function () {
       contentTypeFilter.desc = "content type matches " + regex;
       return contentTypeFilter;
     }
+    function tcpFilter(flow) {
+      return flow.type === "tcp";
+    }
+    tcpFilter.desc = "is a TCP Flow";
     function requestContentType(regex) {
       regex = new RegExp(regex, "i");
       function requestContentTypeFilter(flow) {
@@ -8403,23 +8766,19 @@ var Query = {
 };
 
 function updateStoreFromUrl(store) {
-    var _window$location$hash = window.location.hash.substr(1).split("?", 2);
-
-    var _window$location$hash2 = _slicedToArray(_window$location$hash, 2);
-
-    var path = _window$location$hash2[0];
-    var query = _window$location$hash2[1];
+    var _window$location$hash = window.location.hash.substr(1).split("?", 2),
+        _window$location$hash2 = _slicedToArray(_window$location$hash, 2),
+        path = _window$location$hash2[0],
+        query = _window$location$hash2[1];
 
     var path_components = path.substr(1).split("/");
 
     if (path_components[0] === "flows") {
         if (path_components.length == 3) {
-            var _path_components$slic = path_components.slice(1);
-
-            var _path_components$slic2 = _slicedToArray(_path_components$slic, 2);
-
-            var flowId = _path_components$slic2[0];
-            var tab = _path_components$slic2[1];
+            var _path_components$slic = path_components.slice(1),
+                _path_components$slic2 = _slicedToArray(_path_components$slic, 2),
+                flowId = _path_components$slic2[0],
+                tab = _path_components$slic2[1];
 
             store.dispatch((0, _flows.select)(flowId));
             store.dispatch((0, _flow.selectTab)(tab));
@@ -8428,12 +8787,10 @@ function updateStoreFromUrl(store) {
 
     if (query) {
         query.split("&").forEach(function (x) {
-            var _x$split = x.split("=", 2);
-
-            var _x$split2 = _slicedToArray(_x$split, 2);
-
-            var key = _x$split2[0];
-            var value = _x$split2[1];
+            var _x$split = x.split("=", 2),
+                _x$split2 = _slicedToArray(_x$split, 2),
+                key = _x$split2[0],
+                value = _x$split2[1];
 
             switch (key) {
                 case Query.SEARCH:
@@ -8592,7 +8949,7 @@ function getCookie(name) {
 var xsrf = '_xsrf=' + getCookie("_xsrf");
 
 function fetchApi(url) {
-    var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
+    var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
 
     if (options.method && options.method !== "GET") {
         if (url.indexOf("?") === -1) {
@@ -8635,7 +8992,7 @@ var pure = exports.pure = function pure(renderFn) {
         function _class() {
             _classCallCheck(this, _class);
 
-            return _possibleConstructorReturn(this, Object.getPrototypeOf(_class).apply(this, arguments));
+            return _possibleConstructorReturn(this, (_class.__proto__ || Object.getPrototypeOf(_class)).apply(this, arguments));
         }
 
         _createClass(_class, [{
@@ -8655,6 +9012,5 @@ var pure = exports.pure = function pure(renderFn) {
 };
 
 },{"lodash":"lodash","react":"react","shallowequal":"shallowequal"}]},{},[2])
-
 
 //# sourceMappingURL=app.js.map

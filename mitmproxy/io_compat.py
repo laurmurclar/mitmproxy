@@ -88,6 +88,20 @@ def convert_019_100(data):
 
 def convert_100_200(data):
     data["version"] = (2, 0, 0)
+    data["client_conn"]["address"] = data["client_conn"]["address"]["address"]
+    data["server_conn"]["address"] = data["server_conn"]["address"]["address"]
+    data["server_conn"]["source_address"] = data["server_conn"]["source_address"]["address"]
+    if data["server_conn"]["ip_address"]:
+        data["server_conn"]["ip_address"] = data["server_conn"]["ip_address"]["address"]
+    return data
+
+
+def convert_200_300(data):
+    data["version"] = (3, 0, 0)
+    data["client_conn"]["mitmcert"] = None
+    data["server_conn"]["tls_version"] = None
+    if data["server_conn"]["via"]:
+        data["server_conn"]["via"]["tls_version"] = None
     return data
 
 
@@ -140,6 +154,7 @@ converters = {
     (0, 18): convert_018_019,
     (0, 19): convert_019_100,
     (1, 0): convert_100_200,
+    (2, 0): convert_200_300,
 }
 
 
