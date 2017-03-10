@@ -46,7 +46,7 @@ class ProxyAuth:
         self.htpasswd = None
         self.singleuser = None
         self.mode = None
-        self.authenticated = weakref.WeakSet()  # type: Set[connections.ClientConnection]
+        self.authenticated = weakref.WeakKeyDictionary()  # type: Set[connections.ClientConnection]
         """Contains all connections that are permanently authenticated after an HTTP CONNECT"""
 
     def enabled(self) -> bool:
@@ -102,11 +102,13 @@ class ProxyAuth:
 
         return None
 
-    def authenticate(self, f: http.HTTPFlow) -> bool:
+    def authenticate(self, isHTTPS, f: http.HTTPFlow) -> bool:
         valid_credentials = self.check(f)
         if valid_credentials:
             f.metadata["proxyauth"] = valid_credentials
             del f.request.headers[self.which_auth_header()]
+            if isHTTPS:
+                self.authenticated[f.client_conn] = {'proxyauth': valid_credentials}
             return True
         else:
             f.response = self.auth_required_response()
@@ -154,12 +156,13 @@ class ProxyAuth:
 
     def http_connect(self, f: http.HTTPFlow) -> None:
         if self.enabled():
-            if self.authenticate(f):
-                self.authenticated.add(f.client_conn)
+            if self.authenticate(True, f):
+                mitmproxy.ctx.log("METADATA: " + str(f.metadata))
 
     def requestheaders(self, f: http.HTTPFlow) -> None:
         if self.enabled():
             # Is this connection authenticated by a previous HTTP CONNECT?
             if f.client_conn in self.authenticated:
+                f.metadata["proxyauth"] = self.authenticated[f.client_conn]['proxyauth']
                 return
-            self.authenticate(f)
+            self.authenticate(False, f)
