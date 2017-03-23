@@ -2,7 +2,7 @@ import requests
 from mitmproxy import http
 from mitmproxy import ctx
 
-id_url = "https://protected-forest-33440.herokuapp.com/idea"
+id_url = "https://lmc-lightswitch.herokuapp.com/idea"
 
 def getProxyauth(flow):
     if 'proxyauth' in flow.metadata: # TODO and user != None
@@ -12,6 +12,7 @@ def getProxyauth(flow):
 
 def request(flow):
     payload = { 'username': getProxyauth(flow)[0], 'password': getProxyauth(flow)[1], 'url': flow.request.pretty_host }
+    # TODO handle bad requests
     r = requests.get(id_url, params=payload)
 
     if r.status_code == 401:
