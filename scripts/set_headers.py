@@ -2,7 +2,8 @@ import requests
 from mitmproxy import http
 from mitmproxy import ctx
 
-# TODO authenticate user
+id_url = "https://protected-forest-33440.herokuapp.com/idea"
+
 def getProxyauth(flow):
     if 'proxyauth' in flow.metadata: # TODO and user != None
         return flow.metadata['proxyauth']
@@ -11,8 +12,8 @@ def getProxyauth(flow):
 
 def request(flow):
     payload = { 'username': getProxyauth(flow)[0], 'password': getProxyauth(flow)[1], 'url': flow.request.pretty_host }
-    r = requests.get("http://localhost:3000/idea", params=payload)
-    # TODO check if auth'd
+    r = requests.get(id_url, params=payload)
+
     if r.status_code == 401:
         flow.response = http.HTTPResponse.make(
             401,  # (optional) status code
@@ -20,4 +21,5 @@ def request(flow):
             {"Content-Type": "text/html"}  # (optional) headers
         )
         return
+
     flow.request.headers["x-idea-id"] = r.text
